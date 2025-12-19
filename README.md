@@ -2,8 +2,8 @@
 
 > **"PLOT TWIST: STUDYING JUST GOT FUN... LET'S PLAN IT OUT!"**
 
-![Project Banner](https://via.placeholder.com/1000x350/050505/22d3ee?text=STUDY-EASY+SYSTEM+ONLINE)
-*(Replace this link with a banner image or a screenshot of your dashboard)*
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/6a07e5a0-8071-44b7-81e3-ce5040108a95" />
+
 
 ## 📡 SYSTEM TRANSMISSION
 **Study-Easy** is a gamified productivity platform designed to turn the daily academic grind into a retro-futuristic mission. Built with the **MERN Stack**, it transforms standard to-do lists into "Missions," tracks habits as "Protocols," and rewards consistency with a dynamic ranking system ranging from Bronze to Platinum.
@@ -13,16 +13,22 @@
 ## 📸 VISUAL LOGS
 
 | **Mission Board (Daily Ops)** | **Neural Profile (Stats)** |
-|:---:|:---:|
-| ![Mission Board](screenshots/mission_board_preview.png) | ![Profile](screenshots/profile_preview.png) |
+|<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/1ff15ef5-8d56-4f8c-b6ed-7458e0b5d26f" />
+|<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/90f8c9f2-1f30-41a0-90c4-8857aedcd5c4" />
+|
+| <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/355224e4-50ec-4e55-96e1-d9cb6e181ed0" />
+) | <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/fdbae4ff-05a5-4ccb-bef5-07f6eefe3def" />
+ |
 | *High-contrast, pixelated task management.* | *Gamified stats & rank tracking.* |
 
-| **Habit Tracker** | **Login Portal** |
-|:---:|:---:|
-| ![Habits](screenshots/habit_preview.png) | ![Login](screenshots/login_preview.png) |
+| **Habit Tracker** | **Calender Reminder** |
+|
+| <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/c8b8ad68-0dec-4e4c-adca-49ca001e37d4" />
+ | <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/6aec7541-47fd-4c6e-bc77-e4f08b4b73be" />
+ |
 | *Visual streak tracking & recurring protocols.* | *Secure entry point for pilots.* |
 
-*(⚠️ Note: Create a folder named `screenshots` in your repo and add images named `mission_board_preview.png`, etc., for these to show up!)*
+
 
 ---
 
@@ -99,7 +105,7 @@ npm install
 # Launch the interface
 npm run dev
 Access the system at http://localhost:5173
-
+```
 🔮 FUTURE UPGRADES
 [ ] Multiplayer Leaderboards: Compete with other pilots.
 
