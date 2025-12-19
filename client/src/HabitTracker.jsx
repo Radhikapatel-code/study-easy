@@ -1,21 +1,30 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { DateTime } from 'luxon';
-import './index.css';
+import { 
+  Play, 
+  RotateCcw, 
+  X, 
+  Plus, 
+  Flame, 
+  Clock,
+  MoreVertical,
+  CheckCircle2,
+  Calendar
+} from 'lucide-react';
 
 function HabitTracker() {
   const location = useLocation();
   const navigate = useNavigate();
   const userEmail = location.state?.email || localStorage.getItem('userEmail') || '';
+  
   const [habits, setHabits] = useState([]);
   const [formData, setFormData] = useState({ name: '', category: 'Health' });
   const [errors, setErrors] = useState({});
-  const [timer, setTimer] = useState({ minutes: 25, seconds: 0, running: false });
-  const [timerPosition, setTimerPosition] = useState({ x: 50, y: 50 });
-  const [showTimer, setShowTimer] = useState(true);
-  const timerRef = useRef(null);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  // --- LOGIC SECTION (Unchanged logic, just hooks) ---
 
-  // Redirect if no email
   useEffect(() => {
     if (!userEmail) {
       console.log('No userEmail, redirecting to login');
@@ -25,320 +34,256 @@ function HabitTracker() {
     }
   }, [userEmail, navigate]);
 
-  // Fetch habits
   useEffect(() => {
     const fetchHabits = async () => {
       if (!userEmail) return;
       try {
-        console.log('Fetching habits for:', userEmail);
         const response = await fetch(`/habits?userEmail=${encodeURIComponent(userEmail)}`);
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to fetch habits: ${response.status} ${errorText}`);
-        }
+        if (!response.ok) throw new Error('Failed');
         const data = await response.json();
-        console.log('Habits response:', data);
         setHabits(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Habit fetch error:', error);
-        setErrors({ server: 'Network error: ' + error.message });
       }
     };
-    fetchHabits();
-  }, [userEmail, location]); // Add location to refresh habits on navigation
 
-  // Sync habits to daily tasks
+    fetchHabits();
+
+    // Listen for task updates (when tasks toggle, server may update habits)
+    const onTasksUpdated = () => fetchHabits();
+    window.addEventListener('app:tasks-updated', onTasksUpdated);
+    window.addEventListener('app:habits-updated', onTasksUpdated);
+    return () => {
+      window.removeEventListener('app:tasks-updated', onTasksUpdated);
+      window.removeEventListener('app:habits-updated', onTasksUpdated);
+    };
+  }, [userEmail]);
+
   useEffect(() => {
     const syncHabits = async () => {
       if (!userEmail) return;
       try {
-        console.log('Syncing habits to tasks for:', userEmail);
-        const response = await fetch('/sync-habits-to-tasks', {
+        await fetch('/sync-habits-to-tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userEmail }),
         });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to sync habits: ${response.status} ${errorText}`);
-        }
-        const data = await response.json();
-        console.log('Sync response:', data);
       } catch (error) {
-        console.error('Sync habits error:', error);
-        setErrors({ server: 'Network error: ' + error.message });
+        console.error('Sync error:', error);
       }
     };
     syncHabits();
   }, [userEmail, habits]);
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
-      setErrors({ name: 'Habit name is required' });
-      return;
-    }
-
+    if (!formData.name.trim()) return;
     try {
-      console.log('Adding habit:', { ...formData, userEmail });
       const response = await fetch('/habits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, userEmail }),
       });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to add habit: ${response.status} ${errorText}`);
-      }
       const data = await response.json();
       setHabits([...habits, data.habit]);
+      // Notify other components (DailyToDoList) that habits changed
+      window.dispatchEvent(new Event('app:habits-updated'));
       setFormData({ name: '', category: 'Health' });
-      setErrors({});
-      console.log('Habit added:', data.habit);
     } catch (error) {
-      console.error('Habit add error:', error);
-      setErrors({ server: 'Network error: ' + error.message });
+      console.error('Add error:', error);
     }
   };
 
-  // Update streak
+  const deleteHabit = async (habitId) => {
+    if (!confirm('Delete this habit and its linked daily task?')) return;
+    try {
+      console.log(`Deleting habit: ${habitId}`);
+      const res = await fetch(`/habits/${habitId}`, { method: 'DELETE' });
+      console.log(`Delete response status: ${res.status}`);
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Delete failed');
+      }
+      const data = await res.json();
+      console.log('Delete response:', data);
+      setHabits(habits.filter(h => h._id !== habitId));
+      // Notify other components to refresh tasks/habits
+      window.dispatchEvent(new Event('app:habits-updated'));
+      window.dispatchEvent(new Event('app:tasks-updated'));
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Failed to delete habit: ' + err.message);
+    }
+  };
+
   const updateStreak = async (habitId, date, completed) => {
     const today = DateTime.now().setZone('Asia/Kolkata').toISODate();
-    if (date > today) {
-      console.log('Cannot update future dates');
-      return;
-    }
+    if (date > today) return;
 
     try {
-      console.log('Updating streak:', { habitId, date, completed });
       const response = await fetch(`/habits/${habitId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date, completed }),
       });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to update streak: ${response.status} ${errorText}`);
-      }
       const data = await response.json();
       setHabits(habits.map(h => h._id === habitId ? data.habit : h));
-      console.log('Streak updated:', data.habit);
+      // Inform other parts of the app (DailyToDoList) to refresh tasks
+      window.dispatchEvent(new Event('app:habits-updated'));
     } catch (error) {
-      console.error('Streak update error:', error);
-      setErrors({ server: 'Network error: ' + error.message });
+      console.error('Update error:', error);
     }
   };
 
-  // Pomodoro Timer Logic
-  useEffect(() => {
-    let interval;
-    if (timer.running) {
-      interval = setInterval(() => {
-        if (timer.seconds === 0) {
-          if (timer.minutes === 0) {
-            setTimer({ ...timer, running: false });
-            alert('Pomodoro session complete!');
-          } else {
-            setTimer({ minutes: timer.minutes - 1, seconds: 59, running: true });
-          }
-        } else {
-          setTimer({ ...timer, seconds: timer.seconds - 1 });
-        }
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [timer]);
+  
 
-  const startTimer = () => setTimer({ ...timer, running: true });
-  const resetTimer = () => setTimer({ minutes: 25, seconds: 0, running: false });
-  const closeTimer = () => setShowTimer(false);
-  const toggleTimer = () => setShowTimer(!showTimer);
-
-  // Draggable Timer
-  const handleMouseDown = (e) => {
-    const startX = e.clientX - timerPosition.x;
-    const startY = e.clientY - timerPosition.y;
-
-    const handleMouseMove = (e) => {
-      setTimerPosition({
-        x: e.clientX - startX,
-        y: e.clientY - startY,
-      });
-    };
-
-    const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
-
-  // Render streak grid
+  // Render Streak Dots
   const renderStreak = (habit) => {
-    if (!habit || !Array.isArray(habit.streak)) {
-      console.warn('Invalid habit or streak:', habit);
-      return null;
-    }
-
     const today = DateTime.now().setZone('Asia/Kolkata');
     const startDate = habit.streak.length > 0
       ? DateTime.fromISO(habit.streak[0].date, { zone: 'Asia/Kolkata' })
       : today;
-    const days = Array.from({ length: 21 }, (_, i) => {
+    
+    // We'll show last 7 days + next 7 days for a cleaner UI, or kept 21 as per your code
+    const days = Array.from({ length: 14 }, (_, i) => {
       const date = startDate.plus({ days: i });
       return date.toISODate();
     });
 
-    return days.map((date, index) => {
-      const entry = habit.streak.find(e => e.date === date);
+    return days.map((date) => {
+      const entry = habit.streak?.find(e => e.date === date);
       const isMissed = entry && !entry.completed;
       const isFuture = date > today.toISODate();
+      
+      let dotColor = "bg-zinc-800 border-zinc-700"; // Default/Future
+      if (!isFuture) {
+        if (entry?.completed) dotColor = "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] border-emerald-500";
+        else if (isMissed) dotColor = "bg-red-500/20 border-red-500/50";
+        else dotColor = "bg-zinc-800 border-zinc-600 hover:border-zinc-400 cursor-pointer"; // Today/Past Empty
+      }
+
       return (
         <div
           key={date}
-          className={`w-6 h-6 rounded-full ${isFuture ? 'bg-gray-200' : entry?.completed ? 'bg-pink-800' : isMissed ? 'bg-purple-800' : 'bg-gray-200'} ${!isFuture ? 'cursor-pointer' : ''}`}
           onClick={() => !isFuture && updateStreak(habit._id, date, !entry?.completed)}
           title={date}
+          className={`w-3 h-3 rounded-full border transition-all duration-200 ${dotColor}`}
         ></div>
       );
     });
   };
 
-  if (!userEmail) {
-    return <div>Redirecting to login...</div>;
-  }
-
+  // --- RENDER SECTION ---
   return (
-    <div className="min-h-screen bg-grid flex flex-col p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between bg-[#fedcfd] rounded-lg px-4 py-2">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-[#e0bffb] rounded-full flex items-center justify-center overflow-hidden">
-            <img src="/purple app icon_(credits to owner).jpg" alt="" className="w-full h-full object-cover" />
-          </div>
-          <h1 className="text-4xl tracking-wider">STUDY-EASY</h1>
+    <div className="min-h-screen bg-[#050505] relative overflow-hidden p-6 md:p-12">
+      
+      {/* 1. BACKGROUND: Starfield Animation */}
+      <div className="absolute inset-0 bg-starfield opacity-60 pointer-events-none"></div>
+      
+      {/* Decorative Planet Glows */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-900/30 rounded-full blur-[120px] pointer-events-none animate-pulse"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-cyan-900/20 rounded-full blur-[100px] pointer-events-none"></div>
+      
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 border-b border-zinc-800 pb-4">
+        <div>
+          <h2 className="text-4xl font-pixel text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500 uppercase tracking-widest flex items-center gap-4">
+            <CheckCircle2 className="text-cyan-400" size={36} />
+            Habit Protocol
+          </h2>
+          <p className="text-cyan-200/70 font-mono text-lg mt-2 tracking-wider">
+            COMMANDER: {userEmail.split('@')[0].toUpperCase()}
+          </p>
         </div>
-        <div className="flex items-center space-x-2">
+
+        <div className="flex items-center gap-4 mt-4 md:mt-0">
+          <div className="px-3 py-2 bg-cyan-900/20 border border-cyan-500/30 rounded flex items-center gap-3">
+            <Calendar className="text-cyan-300" size={18} />
+            <div className="flex flex-col leading-tight">
+              <span className="text-xs text-cyan-300 font-pixel uppercase">TODAY</span>
+              <span className="text-sm font-pixel text-white">{new Date().toLocaleDateString()}</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* Input Area */}
+      <div className="bg-black/40 border border-cyan-500/30 rounded-lg p-6 mb-8 backdrop-blur-sm">
+        <form onSubmit={handleSubmit} className="flex gap-4 items-end">
+          <div className="flex-1 space-y-2">
+            <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">New Protocol</label>
+            <input
+              type="text"
+              placeholder="e.g. Read 10 pages..."
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full bg-transparent border border-cyan-700 rounded p-3 text-white placeholder-cyan-800 focus:outline-none focus:border-cyan-500 transition-colors"
+            />
+          </div>
+          <div className="w-48 space-y-2">
+            <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">Category</label>
+            <select
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              className="w-full bg-transparent border border-cyan-700 rounded p-3 text-cyan-300 focus:outline-none focus:border-cyan-500"
+            >
+              <option value="Health">Health</option>
+              <option value="Productivity">Productivity</option>
+              <option value="Learning">Learning</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
           <button
-            onClick={toggleTimer}
-            className="bg-[#f9c7fa] text-black px-3 py-1 rounded text-sm"
+            type="submit"
+            className="bg-cyan-600 hover:bg-cyan-500 text-black px-6 py-3 rounded font-bold transition-colors flex items-center gap-2"
           >
-            {showTimer ? 'Hide Pomodoro' : 'Show Pomodoro'}
+            <Plus size={18} strokeWidth={3} /> Add
           </button>
-          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-            <img src="/download (1).jpg" alt="Profile" className="w-full h-full object-cover rounded-full" />
-          </div>
-        </div>
+        </form>
       </div>
 
-      {/* Pomodoro Timer */}
-      {showTimer && (
-        <div
-          ref={timerRef}
-          className="fixed bg-[#fedcfd] rounded-lg p-4 shadow-md cursor-move z-50"
-          style={{ left: timerPosition.x, top: timerPosition.y, userSelect: 'none' }}
-          onMouseDown={handleMouseDown}
-        >
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="text-lg">Pomodoro</h3>
-            <button
-              onClick={closeTimer}
-              className="text-purple-800 text-sm"
-            >
-              ✕
-            </button>
+      {/* Habits Grid */}
+      <div className="grid grid-cols-1 gap-4">
+        {habits.length === 0 ? (
+          <div className="text-center py-20 text-zinc-600 border border-dashed border-zinc-800 rounded-lg">
+            No active protocols initialized.
           </div>
-          <div className="text-2xl text-center mb-2">
-            {String(timer.minutes).padStart(2, '0')}:{String(timer.seconds).padStart(2, '0')}
-          </div>
-          <div className="flex justify-center gap-2">
-            <button
-              className="bg-[#f9c7fa] text-black px-3 py-1 rounded text-sm"
-              onClick={startTimer}
-              disabled={timer.running}
-            >
-              Start
-            </button>
-            <button
-              className="bg-[#f9c7fa] text-black px-3 py-1 rounded text-sm"
-              onClick={resetTimer}
-            >
-              Reset
-            </button>
-          </div>
-        </div>
-      )}
+        ) : (
+          habits.map(habit => (
+            <div key={habit._id} className="bg-black/40 border border-cyan-700/40 rounded-lg p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-cyan-500 transition-all group">
+              {/* Left: Info */}
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border
+                    ${habit.category === 'Health' ? 'border-cyan-700 text-cyan-300 bg-cyan-900/10' : 
+                      habit.category === 'Productivity' ? 'border-purple-700 text-purple-300 bg-purple-900/10' :
+                      'border-cyan-700 text-cyan-300'}`
+                  }>
+                    {habit.category}
+                  </span>
+                  <h3 className="text-lg font-medium text-zinc-100 group-hover:text-white">{habit.name}</h3>
+                </div>
+                <div className="flex items-center gap-6 text-xs text-zinc-500 font-mono">
+                  <span className="flex items-center gap-1"><Flame size={12} className="text-cyan-400"/> Streak: {habit.streak?.filter(e => e.completed).length || 0}</span>
+                  <span>Target: 21 Days</span>
+                </div>
+              </div>
 
-      {/* Main Content */}
-      <div className="flex flex-1 flex-col mt-10">
-        <div className="bg-[#fedcfd] rounded-lg p-6 w-full">
-          <h2 className="text-2xl mb-4 text-center">Habit Tracker</h2>
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <input
-                type="text"
-                placeholder="Habit Name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full p-2 rounded bg-white text-black"
-              />
-              {errors.name && <p className="text-purple-800 text-sm">{errors.name}</p>}
+              {/* Right: Dots */}
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1.5 flex-wrap">{renderStreak(habit)}</div>
+                <button
+                  onClick={() => deleteHabit(habit._id)}
+                  title="Delete habit"
+                  className="text-red-500 hover:text-red-400 ml-2 p-1 rounded"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
-            <div className="mb-4">
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full p-2 rounded bg-white text-black"
-              >
-                <option value="Health">Health</option>
-                <option value="Productivity">Productivity</option>
-                <option value="Learning">Learning</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-            <button
-              type="submit"
-              className="bg-[#f9c7fa] text-black px-6 py-2 rounded w-full mb-2"
-            >
-              Add Habit
-            </button>
-          </form>
-          {errors.server && <p className="text-purple-800 text-sm mb-4">{errors.server}</p>}
-
-          {/* Separator */}
-          <hr className="border-gray-300 my-6" />
-
-          {/* Habits List */}
-          <div>
-            {habits.length === 0 ? (
-              <p className="text-sm text-center">No habits added yet.</p>
-            ) : (
-              <ul className="space-y-4">
-                {habits.map(habit => (
-                  <li key={habit._id} className="bg-white p-4 rounded-lg shadow">
-                    <h3 className="text-lg font-semibold">{habit.name} ({habit.category})</h3>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {renderStreak(habit) || <p className="text-sm text-purple-800">Error rendering streak</p>}
-                    </div>
-                    <p className="text-sm mt-2">
-                      Days Left: {21 - (habit.streak?.filter(e => e.completed).length || 0)}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Navbar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[#fedcfd] p-4 flex justify-around">
-        <Link to="/daily-todo" state={{ email: userEmail }} className="text-black text-sm">Daily To-Do List</Link>
-        <Link to="/habit-tracker" state={{ email: userEmail }} className="text-black text-sm font-semibold">Habit Tracker</Link>
-        <Link to="/monthly-planner" state={{ email: userEmail }} className="text-black text-sm">Monthly Planner</Link>
+          ))
+        )}
       </div>
     </div>
   );

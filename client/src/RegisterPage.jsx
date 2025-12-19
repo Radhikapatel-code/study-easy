@@ -1,6 +1,8 @@
 import './index.css';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { User, CheckCircle2 } from 'lucide-react';
+import Header from './components/Header';
 
 function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -39,6 +41,11 @@ function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await response.text();
+        throw new Error('Server returned non-JSON response. Is the backend running?');
+      }
       const data = await response.json();
       console.log('Response:', data);
 
@@ -50,8 +57,8 @@ function RegisterPage() {
       alert(data.message);
       navigate('/login');
     } catch (error) {
-      console.error('Network error details:', error);
-      setErrors({ server: `Network error: ${error.message}` });
+      console.error('Registration error:', error);
+      setErrors({ server: 'Registration failed: ' + error.message });
     }
   };
 
@@ -61,60 +68,50 @@ function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-grid flex flex-col p-6">
-      {/* Header with Background */}
-      <div className="flex items-center justify-between">
-        <div className="w-full flex items-center space-x-4 bg-[#fedcfd] rounded-lg px-4 py-2">
-          <div className="w-12 h-12 bg-[#e0bffb] rounded-full flex items-center justify-center overflow-hidden">
-            <img
-              src="purple app icon_(credits to owner).jpg"
-              alt=""
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <h1 className="text-4xl tracking-wider text-center w-full">STUDY-EASY</h1>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#050505] flex flex-col p-6 font-pixel text-white">
+      {/* Header with Branding */}
+      <Header />
+      {/* Decorative Glows */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-900/30 rounded-full blur-[120px] pointer-events-none animate-pulse"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-cyan-900/20 rounded-full blur-[100px] pointer-events-none"></div>
 
       {/* Main Content */}
-      <div className="flex flex-1 items-center justify-center mt-10">
-        <div className="bg-[#fedcfd] rounded-lg p-6 w-64 text-center">
-          <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-sm">
-              <img src="download (1).jpg" alt="" />
-            </span>
+      <div className="max-w-6xl mx-auto mt-10 flex flex-1 items-center justify-center">
+        <div className="bg-black/60 border border-cyan-700/20 rounded-lg p-8 w-full max-w-md text-center relative z-10">
+          <div className="w-20 h-20 bg-transparent rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-cyan-500/30">
+            <CheckCircle2 className="text-cyan-400" size={56} />
           </div>
-          <h2 className="text-2xl mb-4">REGISTER</h2>
-          <div className="mb-4">
+          <h2 className="text-2xl mb-4 text-white">REGISTER</h2>
+          <div className="mb-4 text-left">
             <input
               type="text"
               name="name"
               placeholder="Name"
               value={formData.name}
               onChange={handleChange}
-              className="w-full p-2 rounded bg-white text-black"
+              className="w-full p-3 rounded bg-transparent border border-cyan-700 text-white placeholder-cyan-400 focus:outline-none focus:border-cyan-500"
             />
             {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
           </div>
-          <div className="mb-4">
+          <div className="mb-4 text-left">
             <input
               type="email"
               name="email"
               placeholder="Email"
               value={formData.email}
               onChange={handleChange}
-              className="w-full p-2 rounded bg-white text-black"
+              className="w-full p-3 rounded bg-transparent border border-cyan-700 text-white placeholder-cyan-400 focus:outline-none focus:border-cyan-500"
             />
             {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
           </div>
-          <div className="mb-4">
+          <div className="mb-4 text-left">
             <input
               type="tel"
               name="phone"
               placeholder="Phone Number"
               value={formData.phone}
               onChange={handleChange}
-              className="w-full p-2 rounded bg-white text-black"
+              className="w-full p-3 rounded bg-transparent border border-cyan-700 text-white placeholder-cyan-400 focus:outline-none focus:border-cyan-500"
               pattern="[0-9]*"
               onKeyPress={(e) => {
                 if (!/[0-9]/.test(e.key)) e.preventDefault();
@@ -122,36 +119,36 @@ function RegisterPage() {
             />
             {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
           </div>
-          <div className="mb-4">
+          <div className="mb-4 text-left">
             <input
               type="password"
               name="password"
               placeholder="Password"
               value={formData.password}
               onChange={handleChange}
-              className="w-full p-2 rounded bg-white text-black"
+              className="w-full p-3 rounded bg-transparent border border-cyan-700 text-white placeholder-cyan-400 focus:outline-none focus:border-cyan-500"
             />
             {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
           </div>
-          <div className="mb-4">
+          <div className="mb-4 text-left">
             <input
               type="password"
               name="confirmPassword"
               placeholder="Confirm Password"
               value={formData.confirmPassword}
               onChange={handleChange}
-              className="w-full p-2 rounded bg-white text-black"
+              className="w-full p-3 rounded bg-transparent border border-cyan-700 text-white placeholder-cyan-400 focus:outline-none focus:border-cyan-500"
             />
           </div>
           {errors.server && <p className="text-red-500 text-sm mb-4">{errors.server}</p>}
           <button
             onClick={handleSubmit}
-            className="bg-[#f9c7fa] text-black px-6 py-2 rounded w-full mb-2"
+            className="w-full px-6 py-3 rounded bg-gradient-to-r from-cyan-500 to-purple-500 text-black font-bold mb-3 hover:scale-[1.01] transition-transform"
           >
             SUBMIT
           </button>
-          <p className="text-sm">
-            Already a user? <Link to="/login" className="underline">Login here</Link>
+          <p className="text-sm text-cyan-300">
+            Already a user? <Link to="/login" className="underline text-white">Login here</Link>
           </p>
         </div>
       </div>

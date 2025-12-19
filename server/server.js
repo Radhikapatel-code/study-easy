@@ -1,421 +1,321 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
 const cors = require('cors');
-const dotenv = require('dotenv');
-const cron = require('node-cron');
+const bodyParser = require('body-parser');
+// luxon is optional if you just use native Date, but keeping it as you had it
 const { DateTime } = require('luxon');
 
-dotenv.config();
 const app = express();
+const PORT = process.env.PORT || 5000;
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/focus_os_db';
 
-// Middleware
+// --- MIDDLEWARE ---
 app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json());
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/studyeasy', {
+// --- MONGODB CONNECTION ---
+// Ensure your MongoDB is running locally
+mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-  .then(() => console.log('Connected to MongoDB'))
-  .catch((err) => console.error('MongoDB connection error:', err));
-
-// User Schema
-const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  phone: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+.then(() => {
+  console.log('✅ MongoDB Connected');
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+  });
+})
+.catch(err => {
+  console.error('❌ MongoDB Connection Error:', err);
+  console.error('Make sure MONGO_URI is set (or MongoDB is running locally).');
+  process.exit(1);
 });
 
-const User = mongoose.model('User', userSchema);
+// --- SCHEMAS ---
 
-// Habit Schema
+const taskSchema = new mongoose.Schema({
+  userEmail: { type: String, required: true },
+  text: { type: String, required: true },
+  completed: { type: Boolean, default: false },
+  priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
+  category: { type: String, default: 'Work' }, // Task category
+  date: { type: String }, // Format: YYYY-MM-DD
+  time: { type: String, default: '00:00' }, // Optional reminder time (HH:MM)
+  details: { type: String, default: '' },
+  isHabit: { type: Boolean, default: false }, 
+  linkedHabitId: { type: String, default: null } // CRITICAL FOR SYNC
+});
+
 const habitSchema = new mongoose.Schema({
   userEmail: { type: String, required: true },
   name: { type: String, required: true },
-  category: { type: String, required: true },
-  streak: [{ date: String, completed: Boolean }],
-  createdAt: { type: Date, default: Date.now },
-});
-
-const Habit = mongoose.model('Habit', habitSchema);
-
-// Task Schema
-const taskSchema = new mongoose.Schema({
-  userEmail: { type: String, required: true },
-  title: { type: String, required: true },
-  dueDate: { type: Date, required: false },
-  completed: { type: Boolean, default: false },
-  habitId: { type: mongoose.Schema.Types.ObjectId, required: false },
-  createdAt: { type: Date, default: Date.now },
+  category: { type: String, default: 'Health' },
+  streak: [{
+    date: String,
+    completed: Boolean
+  }]
 });
 
 const Task = mongoose.model('Task', taskSchema);
+const Habit = mongoose.model('Habit', habitSchema);
 
-// Validation function for user input
-const validateInput = (data) => {
-  const errors = {};
-  const emailRegex = /^[a-zA-Z0-9._%+-]+@(gmail\.com|outlook\.com|yahoo\.com|ac\.in|edu\.in|org|edu)$/;
-  const phoneRegex = /^\d{10}$/;
+// --- AUTH ROUTES (Register / Login) ---
+try {
+  const authRoutes = require('./routes/auth');
+  app.use('/', authRoutes); // mount at root so client can call /register and /login
+} catch (err) {
+  console.warn('Auth routes not available:', err.message);
+}
 
-  if (!data.name?.trim()) errors.name = 'Name is required';
-  if (!emailRegex.test(data.email)) errors.email = 'Invalid email format';
-  if (!phoneRegex.test(data.phone)) errors.phone = 'Phone number must be 10 digits';
-  if (data.password.length < 6) errors.password = 'Password must be at least 6 characters';
-  if (data.password !== data.confirmPassword) errors.password = 'Passwords do not match';
+// --- ROUTES: TASKS ---
 
-  return Object.keys(errors).length ? errors : null;
-};
-
-// Register Route
-app.post('/register', async (req, res) => {
-  const { name, email, phone, password, confirmPassword } = req.body;
-
-  const errors = validateInput({ name, email, phone, password, confirmPassword });
-  if (errors) return res.status(400).json({ errors });
-
-  try {
-    const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
-    if (existingUser) {
-      return res.status(400).json({
-        errors: {
-          [existingUser.email === email ? 'email' : 'phone']: `${existingUser.email === email ? 'Email' : 'Phone'} already exists`,
-        },
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ name, email, phone, password: hashedPassword });
-    await user.save();
-
-    res.status(201).json({ message: 'Registration successful' });
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ errors: { server: 'Server error: ' + error.message } });
-  }
-});
-
-// Login Route
-app.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-
-  const emailRegex = /^[a-zA-Z0-9._%+-]+@(gmail\.com|outlook\.com|yahoo\.com|ac\.in|edu\.in|org|edu)$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({ errors: { email: 'Invalid email format' } });
-  }
-  if (!password) {
-    return res.status(400).json({ errors: { password: 'Password is required' } });
-  }
-
-  try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ errors: { email: 'User not found' } });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ errors: { password: 'Invalid password' } });
-    }
-
-    res.status(200).json({ message: 'Login successful', email });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ errors: { server: 'Server error: ' + error.message } });
-  }
-});
-
-// Habit Routes
-app.post('/habits', async (req, res) => {
-  const { userEmail, name, category } = req.body;
-
-  if (!userEmail || !name || !category) {
-    return res.status(400).json({ errors: { server: 'All fields are required' } });
-  }
-
-  try {
-    const habit = new Habit({ userEmail, name, category, streak: [] });
-    await habit.save();
-    res.status(201).json({ message: 'Habit added successfully', habit });
-  } catch (error) {
-    console.error('Habit creation error:', error);
-    res.status(500).json({ errors: { server: 'Server error: ' + error.message } });
-  }
-});
-
-app.get('/habits', async (req, res) => {
-  const { userEmail } = req.query;
-
-  if (!userEmail) {
-    return res.status(400).json({ errors: { server: 'User email is required' } });
-  }
-
-  try {
-    const habits = await Habit.find({ userEmail });
-    res.status(200).json(habits);
-  } catch (error) {
-    console.error('Habit fetch error:', error);
-    res.status(500).json({ errors: { server: 'Server error: ' + error.message } });
-  }
-});
-
-app.put('/habits/:id', async (req, res) => {
-  const { id } = req.params;
-  const { date, completed } = req.body;
-
-  if (!date || completed === undefined) {
-    return res.status(400).json({ errors: { server: 'Date and completion status are required' } });
-  }
-
-  try {
-    const habit = await Habit.findById(id);
-    if (!habit) {
-      return res.status(404).json({ errors: { server: 'Habit not found' } });
-    }
-
-    const streakEntry = habit.streak.find(entry => entry.date === date);
-    if (streakEntry) {
-      streakEntry.completed = completed;
-    } else {
-      habit.streak.push({ date, completed });
-    }
-
-    await habit.save();
-    res.status(200).json({ message: 'Streak updated successfully', habit });
-  } catch (error) {
-    console.error('Streak update error:', error);
-    res.status(500).json({ errors: { server: 'Server error: ' + error.message } });
-  }
-});
-
-// Task Routes
-app.post('/tasks', async (req, res) => {
-  const { userEmail, title, dueDate, habitId } = req.body;
-
-  if (!userEmail || !title) {
-    return res.status(400).json({ errors: { server: 'User email and title are required' } });
-  }
-
-  try {
-    const task = new Task({ userEmail, title, dueDate: dueDate ? new Date(dueDate) : null, habitId });
-    await task.save();
-    res.status(201).json({ message: 'Task added successfully', task });
-  } catch (error) {
-    console.error('Task creation error:', error);
-    res.status(500).json({ errors: { server: 'Server error: ' + error.message } });
-  }
-});
-
+// 1. GET Tasks (Filtered by Date)
 app.get('/tasks', async (req, res) => {
-  const { userEmail, dueSoon, month, today } = req.query;
-
-  if (!userEmail) {
-    return res.status(400).json({ errors: { server: 'User email is required' } });
-  }
-
   try {
-    let query = { userEmail };
-    if (dueSoon === 'true') {
-      const nowIST = DateTime.now().setZone('Asia/Kolkata');
-      const threeDaysFromNow = nowIST.plus({ days: 3 });
-      query.dueDate = { $lte: threeDaysFromNow.toJSDate(), $gte: nowIST.toJSDate() };
-      console.log('Due soon range:', nowIST.toISO(), 'to', threeDaysFromNow.toISO());
-    } else if (month) {
-      const [year, monthIndex] = month.split('-').map(Number);
-      const startOfMonth = DateTime.fromObject({ year, month: monthIndex, day: 1 }, { zone: 'Asia/Kolkata' });
-      const endOfMonth = startOfMonth.endOf('month');
-      query.dueDate = { $gte: startOfMonth.toJSDate(), $lte: endOfMonth.toJSDate() };
-      console.log('Month range:', startOfMonth.toISO(), 'to', endOfMonth.toISO());
-    } else if (today === 'true') {
-      const startOfDay = DateTime.now().setZone('Asia/Kolkata').startOf('day');
-      const endOfDay = startOfDay.endOf('day');
-      query.dueDate = { $gte: startOfDay.toJSDate(), $lte: endOfDay.toJSDate() };
-      console.log('Today range:', startOfDay.toISO(), 'to', endOfDay.toISO());
-    }
+    const { userEmail, date } = req.query;
+    if (!userEmail) return res.status(400).json({ error: 'User email required' });
+    
+    const query = { userEmail };
+    if (date) query.date = date; 
+
     const tasks = await Task.find(query);
-    res.status(200).json(tasks);
+    res.json(tasks);
   } catch (error) {
-    console.error('Task fetch error:', error);
-    res.status(500).json({ errors: { server: 'Server error: ' + error.message } });
+    res.status(500).json({ error: error.message });
   }
 });
 
-app.put('/tasks/:id', async (req, res) => {
-  const { id } = req.params;
-  const { completed } = req.body;
-
-  if (completed === undefined) {
-    return res.status(400).json({ errors: { server: 'Completion status is required' } });
-  }
-
+// 2. POST Task (Manual Task Creation)
+app.post('/tasks', async (req, res) => {
   try {
-    const task = await Task.findById(id);
-    if (!task) {
-      return res.status(404).json({ errors: { server: 'Task not found' } });
-    }
+    const { userEmail, text, priority, category, date, time, details, isHabit, linkedHabitId } = req.body;
+    const newTask = new Task({
+      userEmail,
+      text,
+      priority: priority || 'medium',
+      category: category || 'Work',
+      date: date || new Date().toISOString().split('T')[0],
+      time: time || '00:00',
+      details: details || '',
+      isHabit: !!isHabit,
+      linkedHabitId: linkedHabitId || null
+    });
+    await newTask.save();
+    res.status(201).json(newTask);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
-    task.completed = completed;
-    await task.save();
+// 3. PUT Task (Toggle Complete + Update Linked Habit)
+app.put('/tasks/:id', async (req, res) => {
+  try {
+    const { completed } = req.body;
+    const task = await Task.findByIdAndUpdate(req.params.id, { completed }, { new: true });
 
-    // If task is linked to a habit and is being unchecked, update the habit streak
-    if (task.habitId && completed === false) {
-      const habit = await Habit.findById(task.habitId);
+    // SYNC LOGIC: If this task is linked to a habit, update the habit streak!
+    if (task.linkedHabitId) {
+      const today = task.date; 
+      const habit = await Habit.findById(task.linkedHabitId);
+      
       if (habit) {
-        const taskDueDate = DateTime.fromJSDate(task.dueDate, { zone: 'Asia/Kolkata' });
-        const dateStr = taskDueDate.toISODate();
-        console.log(`Updating habit ${habit.name} streak for date ${dateStr} to incomplete`);
-
-        const streakEntry = habit.streak.find(entry => entry.date === dateStr);
-        if (streakEntry) {
-          streakEntry.completed = false;
+        // Update existing streak entry or push new one
+        const entryIdx = habit.streak.findIndex(s => s.date === today);
+        if (entryIdx >= 0) {
+          habit.streak[entryIdx].completed = completed;
         } else {
-          habit.streak.push({ date: dateStr, completed: false });
+          habit.streak.push({ date: today, completed });
         }
+        // Keep streak sorted
+        habit.streak.sort((a, b) => new Date(a.date) - new Date(b.date));
         await habit.save();
       }
     }
+    res.json(task);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
 
-    res.status(200).json({ message: 'Task updated successfully', task });
+// 4. DELETE Task
+app.delete('/tasks/:id', async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    console.log(`🗑️  Deleting task: ${taskId}`);
+    const deleted = await Task.findByIdAndDelete(taskId);
+    if (!deleted) {
+      console.log(`❌ Task not found: ${taskId}`);
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    console.log(`✅ Task deleted successfully: ${taskId}`);
+    res.json({ message: 'Task deleted', _id: taskId });
   } catch (error) {
-    console.error('Task update error:', error);
-    res.status(500).json({ errors: { server: 'Server error: ' + error.message } });
+    console.error(`❌ Delete error:`, error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Sync Habits to Daily Tasks
-app.post('/sync-habits-to-tasks', async (req, res) => {
-  const { userEmail } = req.body;
+// --- ROUTES: HABITS ---
 
-  if (!userEmail) {
-    console.log('Sync habits: Missing userEmail');
-    return res.status(400).json({ errors: { server: 'User email is required' } });
-  }
-
+// 1. GET Habits
+app.get('/habits', async (req, res) => {
   try {
-    console.log('Syncing habits for:', userEmail);
+    const { userEmail } = req.query;
+    if (!userEmail) return res.status(400).json({ error: 'User email required' });
     const habits = await Habit.find({ userEmail });
-    console.log('Found habits:', habits.length);
-
-    const nowIST = DateTime.now().setZone('Asia/Kolkata');
-    const today = nowIST.toISODate();
-    const startOfDay = nowIST.startOf('day');
-    const endOfDay = nowIST.endOf('day');
-    console.log('Today range:', startOfDay.toISO(), 'to', endOfDay.toISO());
-
-    const newTasks = [];
-    for (const habit of habits) {
-      const taskData = {
-        userEmail,
-        title: habit.name,
-        dueDate: startOfDay.toJSDate(),
-        habitId: habit._id,
-        completed: false,
-        createdAt: new Date(),
-      };
-
-      try {
-        const task = await Task.findOneAndUpdate(
-          { userEmail, habitId: habit._id, dueDate: startOfDay.toJSDate() },
-          { $setOnInsert: taskData },
-          { upsert: true, new: true }
-        );
-        if (task.createdAt.getTime() === taskData.createdAt.getTime()) {
-          console.log('Created task for habit:', habit.name);
-          newTasks.push(task);
-        } else {
-          console.log('Task already exists for habit:', habit.name);
-        }
-      } catch (error) {
-        if (error.code === 11000) {
-          console.log('Duplicate task skipped for habit:', habit.name);
-          continue;
-        }
-        throw error;
-      }
-    }
-
-    res.status(200).json({ message: 'Habits synced to tasks', tasks: newTasks });
+    res.json(habits);
   } catch (error) {
-    console.error('Sync habits error:', error);
-    res.status(500).json({ errors: { server: 'Server error: ' + error.message } });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Cleanup Daily Tasks
-app.post('/cleanup-daily-tasks', async (req, res) => {
-  const { userEmail } = req.body;
-
-  if (!userEmail) {
-    console.log('Cleanup tasks: Missing userEmail');
-    return res.status(400).json({ errors: { server: 'User email is required' } });
-  }
-
+// 2. POST Habit (Create Habit + Linked Task)
+app.post('/habits', async (req, res) => {
   try {
-    console.log('Cleaning up tasks for:', userEmail);
-    const nowIST = DateTime.now().setZone('Asia/Kolkata');
-    const today = nowIST.startOf('day');
-    const endOfDay = nowIST.endOf('day');
-    console.log('Today range for cleanup:', today.toISO(), 'to', endOfDay.toISO());
+    const { userEmail, name, category } = req.body;
 
-    const tasks = await Task.find({
+    // A. Create the Habit
+    const newHabit = new Habit({
       userEmail,
-      dueDate: { $gte: today.toJSDate(), $lte: endOfDay.toJSDate() },
-      completed: false,
-      habitId: { $ne: null },
+      name,
+      category,
+      streak: [] 
     });
-    console.log('Found incomplete tasks:', tasks.length);
+    const savedHabit = await newHabit.save();
 
-    for (const task of tasks) {
-      const habit = await Habit.findById(task.habitId);
-      if (habit) {
-        const todayStr = today.toISODate();
-        const streakEntry = habit.streak.find(entry => entry.date === todayStr);
-        if (!streakEntry) {
-          console.log('Marking habit as missed:', habit.name);
-          habit.streak.push({ date: todayStr, completed: false });
-          await habit.save();
-        }
-        console.log('Deleting task:', task.title);
-        await Task.findByIdAndDelete(task._id);
-      }
-    }
+    // B. Automatically Create a Task for Today (FIXED LINKING)
+    const today = new Date().toISOString().split('T')[0];
+    
+    const newTask = new Task({
+      userEmail,
+      text: `Habit: ${name}`,
+      priority: 'high',
+      date: today,
+      isHabit: true,
+      linkedHabitId: savedHabit._id.toString() // <--- THIS WAS MISSING BEFORE!
+    });
+    await newTask.save();
 
-    res.status(200).json({ message: 'Daily tasks cleaned up' });
+    res.status(201).json({ 
+      message: 'Habit and linked task created', 
+      habit: savedHabit 
+    });
+
   } catch (error) {
-    console.error('Cleanup tasks error:', error);
-    res.status(500).json({ errors: { server: 'Server error: ' + error.message } });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Daily Cleanup Cron Job (Midnight IST)
-cron.schedule('0 0 * * *', async () => {
-  console.log('Running daily task cleanup');
+// 3. PUT Habit (Update Streak + Update Linked Task)
+app.put('/habits/:id', async (req, res) => {
   try {
-    const users = await User.find({}, 'email');
-    console.log('Found users:', users.length);
-    for (const user of users) {
-      console.log('Cleaning up for:', user.email);
-      const response = await fetch('http://localhost:5000/cleanup-daily-tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userEmail: user.email }),
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Cleanup failed for ${user.email}: ${response.status} ${errorText}`);
-      } else {
-        console.log(`Cleaned up tasks for ${user.email}`);
-      }
-    }
-  } catch (error) {
-    console.error('Cron cleanup error:', error);
-  }
-}, {
-  timezone: 'Asia/Kolkata',
+    const { date, completed } = req.body;
+    const habit = await Habit.findById(req.params.id);
+    if (!habit) return res.status(404).json({ error: 'Not found' });
+
+    // A. Update Habit Streak
+    const entryIdx = habit.streak.findIndex(s => s.date === date);
+    if (entryIdx >= 0) habit.streak[entryIdx].completed = completed;
+    else habit.streak.push({ date, completed });
+    habit.streak.sort((a, b) => new Date(a.date) - new Date(b.date));
+    await habit.save();
+
+    // B. Update Linked Task (Sync back to To-Do List)
+    await Task.findOneAndUpdate(
+      { linkedHabitId: habit._id.toString(), date: date },
+      { completed: completed }
+    );
+
+    res.json({ habit });
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// Start Server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// 4. DELETE Habit (Remove habit and linked tasks)
+app.delete('/habits/:id', async (req, res) => {
+  try {
+    const habitId = req.params.id;
+    console.log(`🗑️  Deleting habit: ${habitId}`);
+    
+    // Delete linked tasks first
+    const tasksResult = await Task.deleteMany({ linkedHabitId: habitId });
+    console.log(`Deleted ${tasksResult.deletedCount} linked tasks`);
+    
+    // Delete the habit
+    const deleted = await Habit.findByIdAndDelete(habitId);
+    if (!deleted) return res.status(404).json({ error: 'Habit not found' });
+    
+    console.log(`✅ Habit deleted successfully`);
+    res.json({ message: 'Habit and linked tasks deleted' });
+  } catch (error) { 
+    console.error('❌ Delete error:', error);
+    res.status(500).json({ error: error.message }); 
+  }
+});
+
+// --- ROUTE: SYNC ---
+
+// Migration: Add category to tasks that don't have it
+app.post('/migrate-tasks-category', async (req, res) => {
+  try {
+    const result = await Task.updateMany(
+      { category: { $exists: false } },
+      { $set: { category: 'Work' } }
+    );
+    console.log(`✅ Migrated ${result.modifiedCount} tasks with category field`);
+    res.json({ message: `Updated ${result.modifiedCount} tasks with category 'Work'` });
+  } catch (error) { 
+    console.error('❌ Migration error:', error);
+    res.status(500).json({ error: error.message }); 
+  }
+});
+
+// --- ROUTE: SYNC ---
+
+// Run this when Daily Page loads to ensure habits appear as tasks
+app.post('/sync-habits-to-tasks', async (req, res) => {
+  try {
+    const { userEmail } = req.body;
+    const today = new Date().toISOString().split('T')[0];
+
+    const habits = await Habit.find({ userEmail });
+    let count = 0;
+
+    for (const habit of habits) {
+      // 1. Check if habit is already done today in streak
+      const isDoneToday = habit.streak.some(s => s.date === today && s.completed);
+
+      // 2. Check if task exists (Match by LINKED ID)
+      const existingTask = await Task.findOne({
+        userEmail,
+        date: today,
+        linkedHabitId: habit._id.toString()
+      });
+
+      if (!existingTask) {
+        await new Task({
+          userEmail,
+          text: `Habit: ${habit.name}`,
+          priority: 'high',
+          date: today,
+          isHabit: true,
+          linkedHabitId: habit._id.toString(), // Ensure connection
+          completed: isDoneToday // Respect existing status
+        }).save();
+        count++;
+      }
+    }
+    res.json({ message: `Synced ${count} habits` });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// 404 handler for unknown routes
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not Found' });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: err.message || 'Internal Server Error' });
+});
+
+// Server is started after successful DB connection above

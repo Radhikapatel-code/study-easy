@@ -25,6 +25,9 @@ router.post('/register', async (req, res) => {
 
 const jwt = require('jsonwebtoken');
 
+// JWT secret from env for safety
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
+
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -38,7 +41,7 @@ router.post('/login', async (req, res) => {
     if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
 
     // Create token
-    const token = jwt.sign({ id: user._id }, 'your_jwt_secret', { expiresIn: '1h' });
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
 
     res.status(200).json({
       token,

@@ -1,169 +1,54 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import './index.css';
+import { useState, useEffect } from 'react';
+import { 
+  Calendar, 
+  ChevronLeft, 
+  ChevronRight, 
+  Plus, 
+  Crosshair, 
+  Shield,
+  Clock,
+  CheckCircle2
+} from 'lucide-react';
 
 function MonthlyPlanner() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const userEmail = location.state?.email || localStorage.getItem('userEmail') || '';
-  const [tasks, setTasks] = useState([]);
-  const [monthTasks, setMonthTasks] = useState([]);
-  const [selectedDateTasks, setSelectedDateTasks] = useState([]);
-  const [formData, setFormData] = useState({ title: '', dueDate: '' });
-  const [errors, setErrors] = useState({});
-  const [timer, setTimer] = useState({ minutes: 25, seconds: 0, running: false });
-  const [timerPosition, setTimerPosition] = useState({ x: 50, y: 50 });
-  const [showTimer, setShowTimer] = useState(true);
-  const timerRef = useRef(null);
+  const userEmail = localStorage.getItem('userEmail') || "radhika@demo.com";
+  
+  // STATE
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [allTasks, setAllTasks] = useState([]); 
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newTaskText, setNewTaskText] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // Redirect if no email
+  // --- 1. FETCH ALL TASKS ---
   useEffect(() => {
-    if (!userEmail) {
-      console.log('No userEmail, redirecting to login');
-      navigate('/login');
-    } else {
-      localStorage.setItem('userEmail', userEmail);
-    }
-  }, [userEmail, navigate]);
-
-  // Fetch tasks due soon
-  useEffect(() => {
-    const fetchTasks = async () => {
-      if (!userEmail) return;
+    const fetchAllTasks = async () => {
       try {
-        console.log('Fetching tasks due soon for:', userEmail);
-        const response = await fetch(`/tasks?userEmail=${encodeURIComponent(userEmail)}&dueSoon=true`);
-        const data = await response.json();
-        console.log('Tasks due soon response:', data);
+        setLoading(true);
+        const response = await fetch(`/tasks?userEmail=${encodeURIComponent(userEmail)}`);
         if (response.ok) {
-          setTasks(Array.isArray(data) ? data : []);
-        } else {
-          setErrors(data.errors || { server: 'Failed to fetch tasks' });
+          const data = await response.json();
+          setAllTasks(data);
         }
       } catch (error) {
-        console.error('Task fetch error:', error);
-        setErrors({ server: 'Network error: ' + error.message });
+        console.error("Radar malfunction:", error);
+      } finally {
+        setLoading(false);
       }
     };
-    fetchTasks();
+    fetchAllTasks();
   }, [userEmail]);
 
-  // Fetch tasks for current month
-  useEffect(() => {
-    const fetchMonthTasks = async () => {
-      if (!userEmail) return;
-      const monthQuery = `${currentMonth.getFullYear()}-${currentMonth.getMonth() + 1}`;
-      try {
-        console.log('Fetching tasks for month:', monthQuery);
-        const response = await fetch(`/tasks?userEmail=${encodeURIComponent(userEmail)}&month=${monthQuery}`);
-        const data = await response.json();
-        console.log('Month tasks response:', data);
-        if (response.ok) {
-          setMonthTasks(Array.isArray(data) ? data : []);
-        } else {
-          setErrors(data.errors || { server: 'Failed to fetch month tasks' });
-        }
-      } catch (error) {
-        console.error('Month task fetch error:', error);
-        setErrors({ server: 'Network error: ' + error.message });
-      }
-    };
-    fetchMonthTasks();
-  }, [userEmail, currentMonth]);
-
-  // Handle form submission
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!formData.title.trim() || !formData.dueDate) {
-      setErrors({
-        title: !formData.title.trim() ? 'Task title is required' : '',
-        dueDate: !formData.dueDate ? 'Due date is required' : '',
-      });
-      return;
-    }
-
-    try {
-      console.log('Adding task:', { ...formData, userEmail });
-      const response = await fetch('/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, userEmail }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setMonthTasks([...monthTasks, data.task]);
-        const dueDate = new Date(data.task.dueDate);
-        const threeDaysFromNow = new Date();
-        threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
-        if (dueDate <= threeDaysFromNow && dueDate >= new Date()) {
-          setTasks([...tasks, data.task]);
-        }
-        setFormData({ title: '', dueDate: '' });
-        setErrors({});
-        console.log('Task added:', data.task);
-      } else {
-        setErrors(data.errors || { server: 'Failed to add task' });
-      }
-    } catch (error) {
-      console.error('Task add error:', error);
-      setErrors({ server: 'Network error: ' + error.message });
-    }
-  };
-
-  // Pomodoro Timer Logic
-  useEffect(() => {
-    let interval;
-    if (timer.running) {
-      interval = setInterval(() => {
-        if (timer.seconds === 0) {
-          if (timer.minutes === 0) {
-            setTimer({ ...timer, running: false });
-            alert('Pomodoro session complete!');
-          } else {
-            setTimer({ minutes: timer.minutes - 1, seconds: 59, running: true });
-          }
-        } else {
-          setTimer({ ...timer, seconds: timer.seconds - 1 });
-        }
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [timer]);
-
-  const startTimer = () => setTimer({ ...timer, running: true });
-  const resetTimer = () => setTimer({ minutes: 25, seconds: 0, running: false });
-  const closeTimer = () => setShowTimer(false);
-  const toggleTimer = () => setShowTimer(!showTimer);
-
-  // Draggable Timer
-  const handleMouseDown = (e) => {
-    const startX = e.clientX - timerPosition.x;
-    const startY = e.clientY - timerPosition.y;
-
-    const handleMouseMove = (e) => {
-      setTimerPosition({
-        x: e.clientX - startX,
-        y: e.clientY - startY,
-      });
-    };
-
-    const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
-
-  // Calendar Logic
+  // --- 2. CALENDAR MATH ---
   const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
   const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
+  
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const weeks = [];
   let week = Array(7).fill(null);
+  
   for (let i = 0; i < firstDay; i++) week[i] = null;
+  
   days.forEach((day, i) => {
     week[(i + firstDay) % 7] = day;
     if ((i + firstDay) % 7 === 6 || i === days.length - 1) {
@@ -172,205 +57,273 @@ function MonthlyPlanner() {
     }
   });
 
+  // --- 3. HANDLERS ---
   const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
   const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
 
   const selectDate = (day) => {
     if (!day) return;
-    const selectedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const formattedDate = selectedDate.toISOString().split('T')[0];
-    setFormData({ ...formData, dueDate: formattedDate });
-    // Show tasks for the selected date
-    const dateTasks = monthTasks.filter(task => {
-      const taskDate = new Date(task.dueDate).toISOString().split('T')[0];
-      return taskDate === formattedDate;
-    });
-    setSelectedDateTasks(dateTasks);
+    const newDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const offset = newDate.getTimezoneOffset();
+    const correctedDate = new Date(newDate.getTime() - (offset*60*1000));
+    
+    setSelectedDate(correctedDate.toISOString().split('T')[0]);
   };
 
-  // Check if a day has tasks
-  const hasTasks = (day) => {
+  const handleAddTask = async (e) => {
+    e.preventDefault();
+    if (!newTaskText.trim()) return;
+
+    // --- NEW: Ask for extra details ---
+    const timeInput = prompt("ENTER TIME (e.g. 14:00). Leave empty for no reminder:");
+    if (timeInput === null) return; // User cancelled
+    const timeTrim = (timeInput || '').trim();
+    // Validate HH:MM 24-hour format if provided
+    const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
+    if (timeTrim !== '' && !timeRegex.test(timeTrim)) {
+      alert('Invalid time format. Please use HH:MM (24-hour). Entry aborted.');
+      return;
+    }
+    
+    const categoryInput = prompt("ENTER CATEGORY (e.g. Work, Health):");
+    const detailsInput = prompt("ANY EXTRA DETAILS/NOTES?");
+    // ----------------------------------
+
+    try {
+      const response = await fetch('http://localhost:5000/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userEmail,
+          text: newTaskText,
+          date: selectedDate,
+          priority: 'medium',
+          // Add new fields to payload
+          time: timeTrim || '00:00',
+          category: categoryInput || 'General',
+          details: detailsInput || ''
+        })
+      });
+
+      if (response.ok) {
+        const newTask = await response.json();
+        setAllTasks([...allTasks, newTask]); 
+        setNewTaskText('');
+      }
+    } catch (error) {
+      console.error("Transmission failed:", error);
+    }
+  };
+
+  // We intentionally do not consider regular daily tasks for calendar indicators here — only timed reminders
+  const hasTaskOnDay = (day) => {
     if (!day) return false;
-    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-    const formattedDate = date.toISOString().split('T')[0];
-    return monthTasks.some(task => {
-      const taskDate = new Date(task.dueDate).toISOString().split('T')[0];
-      return taskDate === formattedDate;
-    });
+    const checkDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const offset = checkDate.getTimezoneOffset();
+    const correctedDate = new Date(checkDate.getTime() - (offset*60*1000)).toISOString().split('T')[0];
+    return allTasks.some(t => t.date === correctedDate && t.time && t.time !== '00:00');
   };
 
-  if (!userEmail) {
-    return <div>Redirecting to login...</div>;
-  }
+  // Reminders: tasks with a specific time (not '00:00')
+  const hasReminderOnDay = (day) => hasTaskOnDay(day); // alias — reminders are timed tasks
+
+  // Only show reminders (timed entries) in the Monthly Planner logs
+  const tasksForSelectedDate = allTasks.filter(t => t.date === selectedDate && t.time && t.time !== '00:00');
 
   return (
-    <div className="min-h-screen bg-grid flex flex-col p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between bg-[#fedcfd] rounded-lg px-4 py-2">
-        <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-[#e0bffb] rounded-full flex items-center justify-center overflow-hidden">
-            <img src="/purple app icon_(credits to owner).jpg" alt="" className="w-full h-full object-cover" />
-          </div>
-          <h1 className="text-4xl tracking-wider">STUDY-EASY</h1>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={toggleTimer}
-            className="bg-[#f9c7fa] text-black px-3 py-1 rounded text-sm"
-          >
-            {showTimer ? 'Hide Pomodoro' : 'Show Pomodoro'}
-          </button>
-          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-            <img src="/download (1).jpg" alt="Profile" className="w-full h-full object-cover rounded-full" />
-          </div>
-        </div>
-      </div>
+    // Added 'font-pixel' class (defined in style tag)
+    <div 
+      className="min-h-screen bg-[#050505] relative overflow-hidden p-6 md:p-12 text-white font-pixel"
+    >
+      {/* breathing hue overlay */}
+      <div className="breathing-hue"></div>
+      
+      {/* INJECT PIXEL FONT */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+        .font-pixel { font-family: 'VT323', monospace; font-size: 1.2rem; }
+        /* Custom scrollbar for webkit */
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1a1a1a; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #666; }
+      `}</style>
 
-      {/* Pomodoro Timer */}
-      {showTimer && (
-        <div
-          ref={timerRef}
-          className="fixed bg-[#fedcfd] rounded-lg p-4 shadow-md cursor-move z-50"
-          style={{ left: timerPosition.x, top: timerPosition.y, userSelect: 'none' }}
-          onMouseDown={handleMouseDown}
-        >
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="text-lg">Pomodoro</h3>
-            <button
-              onClick={closeTimer}
-              className="text-purple-800 text-sm"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="text-2xl text-center mb-2">
-            {String(timer.minutes).padStart(2, '0')}:{String(timer.seconds).padStart(2, '0')}
-          </div>
-          <div className="flex justify-center gap-2">
-            <button
-              className="bg-[#f9c7fa] text-black px-3 py-1 rounded text-sm"
-              onClick={startTimer}
-              disabled={timer.running}
-            >
-              Start
-            </button>
-            <button
-              className="bg-[#f9c7fa] text-black px-3 py-1 rounded text-sm"
-              onClick={resetTimer}
-            >
-              Reset
-            </button>
-          </div>
-        </div>
-      )}
+      {/* BACKGROUND EFFECTS */}
+      <div className="absolute inset-0 bg-starfield opacity-60 pointer-events-none"></div>
+      <div className="absolute top-[20%] right-[-10%] w-[600px] h-[600px] bg-indigo-900/20 rounded-full blur-[120px] pointer-events-none"></div>
 
-      {/* Main Content */}
-      <div className="flex flex-1 flex-col mt-10">
-        <div className="bg-[#fedcfd] rounded-lg p-6 w-full">
-          <h2 className="text-2xl mb-4 text-center">Monthly Planner</h2>
-
-          {/* Calendar */}
-          <div className="mb-6">
-            <div className="flex justify-between mb-2">
-              <button onClick={prevMonth} className="bg-[#f9c7fa] text-black px-3 py-1 rounded">Prev</button>
-              <h3 className="text-lg">
-                {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
-              </h3>
-              <button onClick={nextMonth} className="bg-[#f9c7fa] text-black px-3 py-1 rounded">Next</button>
-            </div>
-            <div className="grid grid-cols-7 gap-1 text-center">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="font-semibold">{day}</div>
-              ))}
-              {weeks.map((week, i) => (
-                week.map((day, j) => (
-                  <div
-                    key={`${i}-${j}`}
-                    className={`p-2 relative ${day ? 'bg-white rounded cursor-pointer hover:bg-gray-100' : 'bg-transparent'}`}
-                    onClick={() => selectDate(day)}
-                  >
-                    {day}
-                    {hasTasks(day) && (
-                      <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-purple-800 rounded-full"></div>
-                    )}
-                  </div>
-                ))
-              ))}
-            </div>
-          </div>
-
-          {/* Add Task Form */}
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <input
-                type="text"
-                placeholder="Task/Reminder Title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full p-2 rounded bg-white text-black"
-              />
-              {errors.title && <p className="text-purple-800 text-sm">{errors.title}</p>}
-            </div>
-            <div className="mb-4">
-              <input
-                type="date"
-                value={formData.dueDate}
-                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                className="w-full p-2 rounded bg-white text-black"
-              />
-              {errors.dueDate && <p className="text-purple-800 text-sm">{errors.dueDate}</p>}
-            </div>
-            <button
-              type="submit"
-              className="bg-[#f9c7fa] text-black px-6 py-2 rounded w-full mb-2"
-            >
-              Add Task
-            </button>
-          </form>
-          {errors.server && <p className="text-purple-800 text-sm mb-4">{errors.server}</p>}
-
-          {/* Separator */}
-          <hr className="border-gray-300 my-6" />
-
-          {/* Selected Date Tasks */}
-          {selectedDateTasks.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-2">
-                Tasks for {new Date(selectedDateTasks[0].dueDate).toLocaleDateString()}
-              </h3>
-              <ul className="space-y-4">
-                {selectedDateTasks.map(task => (
-                  <li key={task._id} className="bg-white p-4 rounded-lg shadow">
-                    <span>{task.title}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Reminders List */}
+      <div className="max-w-5xl mx-auto relative z-10">
+        
+        {/* HEADER */}
+        <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-10 pb-6 border-b border-white/10">
           <div>
-            <h3 className="text-lg font-semibold mb-2">Reminders (Due in 3 Days)</h3>
-            {tasks.length === 0 ? (
-              <p className="text-sm text-center">No reminders due soon.</p>
-            ) : (
-              <ul className="space-y-4">
-                {tasks.map(task => (
-                  <li key={task._id} className="bg-white p-4 rounded-lg shadow">
-                    <span>{task.title} (Due: {new Date(task.dueDate).toLocaleDateString()})</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <h1 className="text-5xl font-normal text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500 uppercase tracking-widest flex items-center gap-4">
+              <CheckCircle2 className="text-cyan-400" size={40} /> 
+              MISSION CALENDAR
+            </h1>
+            <p className="text-cyan-200/60 text-lg mt-2 tracking-widest">
+              MONTHLY PLANNER // {currentMonth.getFullYear()}
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="px-4 py-2 bg-cyan-900/20 border border-cyan-500/30 rounded flex items-center gap-3">
+              <Calendar className="text-cyan-300" size={18} />
+              <div className="flex flex-col leading-tight">
+                <span className="text-xs text-cyan-300 font-pixel uppercase">TODAY</span>
+                <span className="text-sm font-pixel text-white">{new Date().toLocaleDateString()}</span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Bottom Navbar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[#fedcfd] p-4 flex justify-around">
-        <Link to="/daily-todo" state={{ email: userEmail }} className="text-black text-sm">Daily To-Do List</Link>
-        <Link to="/habit-tracker" state={{ email: userEmail }} className="text-black text-sm">Habit Tracker</Link>
-        <Link to="/monthly-planner" state={{ email: userEmail }} className="text-black text-sm font-semibold">Monthly Planner</Link>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* --- LEFT: THE CALENDAR --- */}
+          <div className="lg:col-span-2">
+            <div className="bg-black/40 border border-purple-500/30 backdrop-blur-md rounded-xl p-6 shadow-[0_0_30px_rgba(168,85,247,0.1)]">
+              
+              {/* Calendar Controls */}
+              <div className="flex justify-between items-center mb-6">
+                <button onClick={prevMonth} className="p-2 hover:bg-white/10 rounded-full text-cyan-400 transition-colors">
+                  <ChevronLeft size={24} />
+                </button>
+                <h2 className="text-3xl text-white uppercase tracking-widest">
+                  {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                </h2>
+                <button onClick={nextMonth} className="p-2 hover:bg-white/10 rounded-full text-cyan-400 transition-colors">
+                  <ChevronRight size={24} />
+                </button>
+              </div>
+
+              {/* Day Labels */}
+              <div className="grid grid-cols-7 mb-2">
+                {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
+                  <div key={day} className="text-center text-lg text-purple-500/70 py-2">
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              {/* Calendar Grid */}
+              <div className="grid grid-cols-7 gap-2">
+                {weeks.map((week, wIndex) => (
+                  week.map((day, dIndex) => {
+                    if (!day) return <div key={`empty-${wIndex}-${dIndex}`} className="aspect-square"></div>;
+                    
+                    const isSelected = selectedDate.endsWith(String(day).padStart(2, '0')) && 
+                                       new Date(selectedDate).getMonth() === currentMonth.getMonth();
+                    const hasTask = hasTaskOnDay(day);
+
+                    return (
+                      <div 
+                        key={`day-${day}`}
+                        onClick={() => selectDate(day)}
+                        className={`
+                          aspect-square relative border rounded-lg cursor-pointer transition-all duration-300 flex flex-col items-center justify-center p-2
+                          ${isSelected 
+                            ? 'bg-black/60 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.15)]' 
+                            : 'bg-black/30 border-white/5 hover:border-cyan-500/30 hover:bg-white/5'
+                          }
+                        `}
+                      >
+                        <span className={`text-2xl ${isSelected ? 'text-white' : 'text-zinc-400'}`}>
+                          {day}
+                        </span>
+                        
+                        {/* Reminder/Task Indicator */}
+                        {hasReminderOnDay(day) ? (
+                          <div className="mt-2 flex items-center gap-1">
+                            <Clock size={12} className="text-purple-400" />
+                            <div className="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.45)]"></div>
+                          </div>
+                        ) : hasTask && (
+                          <div className="mt-2 w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.25)] animate-pulse"></div>
+                        )}
+                      </div>
+                    );
+                  })
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* --- RIGHT: SELECTED DATE LOGS --- */}
+          <div className="lg:col-span-1 flex flex-col h-full">
+            <div className="bg-black/40 border border-cyan-500/30 backdrop-blur-md rounded-xl p-6 flex-1 flex flex-col">
+              
+              <h3 className="text-2xl text-cyan-300 mb-4 border-b border-white/10 pb-4 font-pixel">
+                LOGS — <span className="text-white">{selectedDate}</span>
+              </h3>
+
+              {/* Task List for Date */}
+              <div className="flex-1 overflow-y-auto space-y-3 mb-6 custom-scrollbar pr-2 max-h-[400px]">
+                {tasksForSelectedDate.length === 0 ? (
+                  <div className="text-center py-10 opacity-50">
+                    <Shield size={32} className="mx-auto mb-2 text-zinc-600"/>
+                    <p className="text-lg text-zinc-500">SECTOR CLEAR</p>
+                  </div>
+                ) : (
+                  tasksForSelectedDate.map(task => (
+                    <div key={task._id} className="bg-white/5 border border-white/10 p-3 rounded flex items-start gap-3 group hover:border-cyan-500/50 transition-colors">
+                        <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${task.completed ? 'bg-cyan-400' : 'bg-purple-500'}`}></div>
+                      <div className="w-full">
+                        {/* Header: Time & Category */}
+                        <div className="flex justify-between items-center text-sm mb-1 opacity-70">
+                            <span className="text-cyan-300">[{task.time || '--:--'}]</span>
+                            <span className="text-purple-300 uppercase">[{task.category || 'GEN'}]</span>
+                        </div>
+                        
+                        {/* Main Text */}
+                        <p className={`text-xl leading-none mb-1 ${task.completed ? 'text-zinc-500 line-through' : 'text-white'}`}>
+                          {task.text}
+                        </p>
+
+                        {/* Extra Details */}
+                        {task.details && (
+                             <p className="text-sm text-zinc-500 border-l-2 border-zinc-700 pl-2 mt-1 italic">
+                                 {">"} {task.details}
+                             </p>
+                        )}
+
+                        {task.isHabit && (
+                          <span className="text-sm bg-purple-900/50 text-purple-300 px-1 rounded mt-2 inline-block">
+                            HABIT_PROTOCOL
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Add Task Input */}
+              <form onSubmit={handleAddTask} className="mt-auto">
+                <div className="relative group">
+                  <input
+                    type="text"
+                    value={newTaskText}
+                    onChange={(e) => setNewTaskText(e.target.value)}
+                    placeholder="INITIATE NEW ENTRY..."
+                    className="w-full bg-black/50 border border-cyan-900/50 rounded p-3 pl-10 text-xl text-cyan-100 placeholder-cyan-900 focus:outline-none focus:border-cyan-400 transition-colors"
+                  />
+                  <Crosshair size={20} className="absolute left-3 top-3.5 text-cyan-700 group-hover:text-cyan-400 transition-colors" />
+                  <button 
+                    type="submit"
+                    className="absolute right-2 top-2 p-1.5 bg-cyan-900/30 hover:bg-cyan-500 text-cyan-400 hover:text-black rounded transition-all"
+                  >
+                    <Plus size={20} />
+                  </button>
+                </div>
+                <div className="text-xs text-center mt-2 text-zinc-600">
+                    * PRESS ENTER FOR DETAILS CONFIGURATION
+                </div>
+              </form>
+
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
   );
