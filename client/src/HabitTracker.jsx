@@ -38,7 +38,7 @@ function HabitTracker() {
     const fetchHabits = async () => {
       if (!userEmail) return;
       try {
-        const response = await fetch(`/habits?userEmail=${encodeURIComponent(userEmail)}`);
+        const response = await fetch(`https://study-easy.onrender.com/habits?userEmail=${encodeURIComponent(userEmail)}`);
         if (!response.ok) throw new Error('Failed');
         const data = await response.json();
         setHabits(Array.isArray(data) ? data : []);
@@ -63,7 +63,7 @@ function HabitTracker() {
     const syncHabits = async () => {
       if (!userEmail) return;
       try {
-        await fetch('/sync-habits-to-tasks', {
+        await fetch('https://study-easy.onrender.com/sync-habits-to-tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userEmail }),
@@ -79,7 +79,7 @@ function HabitTracker() {
     e.preventDefault();
     if (!formData.name.trim()) return;
     try {
-      const response = await fetch('/habits', {
+      const response = await fetch('https://study-easy.onrender.com/habits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, userEmail }),
@@ -98,7 +98,7 @@ function HabitTracker() {
     if (!confirm('Delete this habit and its linked daily task?')) return;
     try {
       console.log(`Deleting habit: ${habitId}`);
-      const res = await fetch(`/habits/${habitId}`, { method: 'DELETE' });
+      const res = await fetch(`https://study-easy.onrender.com/habits/${habitId}`, { method: 'DELETE' });
       console.log(`Delete response status: ${res.status}`);
       if (!res.ok) {
         const errData = await res.json();
@@ -121,7 +121,7 @@ function HabitTracker() {
     if (date > today) return;
 
     try {
-      const response = await fetch(`/habits/${habitId}`, {
+      const response = await fetch(`https://study-easy.onrender.com/habits/${habitId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date, completed }),

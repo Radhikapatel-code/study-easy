@@ -14,7 +14,7 @@ function LoginPage() {
     setErrors({});
 
     try {
-      const response = await fetch('/login', {
+      const response = await fetch('https://study-easy.onrender.com/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),

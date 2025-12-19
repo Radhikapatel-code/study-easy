@@ -20,7 +20,7 @@ function DailyToDoList() {
   useEffect(() => {
     const runMigration = async () => {
       try {
-        const res = await fetch('/migrate-tasks-category', { method: 'POST' });
+        const res = await fetch('https://study-easy.onrender.com/migrate-tasks-category', { method: 'POST' });
         if (res.ok) {
           const data = await res.json();
           console.log('Migration result:', data);
@@ -52,7 +52,7 @@ function DailyToDoList() {
     const dateToSend = new Date().toISOString().split('T')[0];
     
     try {
-      const response = await fetch('/tasks', {
+      const response = await fetch('https://study-easy.onrender.com/tasks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -82,7 +82,7 @@ function DailyToDoList() {
 
     try {
         // This PUT request triggers the Server Sync Logic we wrote!
-      await fetch(`/tasks/${id}`, {
+      await fetch(`https://study-easy.onrender.com/tasks/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ completed: !currentStatus })
@@ -103,7 +103,7 @@ function DailyToDoList() {
     setTasks(tasks.filter(t => t._id !== id));
     try {
         console.log(`Deleting task: ${id}`);
-        const response = await fetch(`/tasks/${id}`, { method: 'DELETE' });
+        const response = await fetch(`https://study-easy.onrender.com/tasks/${id}`, { method: 'DELETE' });
         console.log(`Delete response status: ${response.status}`);
         if (!response.ok) {
             const errData = await response.json();
@@ -125,14 +125,14 @@ function DailyToDoList() {
       setLoading(true);
 
       // A. Trigger the Sync (Creates daily tasks for your habits)
-      await fetch('/sync-habits-to-tasks', {
+      await fetch('https://study-easy.onrender.com/sync-habits-to-tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userEmail })
       });
 
       // B. Fetch Tasks for the specific date
-      const response = await fetch(`/tasks?userEmail=${encodeURIComponent(userEmail)}&date=${selectedDate}`);
+      const response = await fetch(`https://study-easy.onrender.com/tasks?userEmail=${encodeURIComponent(userEmail)}&date=${selectedDate}`);
       if (response.ok) {
          const data = await response.json();
          setTasks(data);

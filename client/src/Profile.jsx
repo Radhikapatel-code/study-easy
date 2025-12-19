@@ -34,9 +34,9 @@ function Profile() {
         
         // Parallel Fetch
         const [habRes, tasksTodayRes, tasksAllRes] = await Promise.all([
-          fetch(`http://localhost:5000/habits?userEmail=${encodeURIComponent(userEmail)}`),
-          fetch(`http://localhost:5000/tasks?userEmail=${encodeURIComponent(userEmail)}&date=${today}`),
-          fetch(`http://localhost:5000/tasks?userEmail=${encodeURIComponent(userEmail)}`),
+          fetch(`https://study-easy.onrender.com/habits?userEmail=${encodeURIComponent(userEmail)}`),
+          fetch(`https://study-easy.onrender.com/tasks?userEmail=${encodeURIComponent(userEmail)}&date=${today}`),
+          fetch(`https://study-easy.onrender.com/tasks?userEmail=${encodeURIComponent(userEmail)}`),
         ]);
 
         const habitsAll = habRes.ok ? await habRes.json() : [];

@@ -25,7 +25,7 @@ function MonthlyPlanner() {
     const fetchAllTasks = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/tasks?userEmail=${encodeURIComponent(userEmail)}`);
+        const response = await fetch(`https://study-easy.onrender.com/tasks?userEmail=${encodeURIComponent(userEmail)}`);
         if (response.ok) {
           const data = await response.json();
           setAllTasks(data);
@@ -90,7 +90,7 @@ function MonthlyPlanner() {
     // ----------------------------------
 
     try {
-      const response = await fetch('http://localhost:5000/tasks', {
+      const response = await fetch('https://study-easy.onrender.com/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

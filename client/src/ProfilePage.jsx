@@ -12,9 +12,9 @@ export default function ProfilePage() {
       try {
         const today = new Date().toISOString().split('T')[0];
         const [habRes, tasksTodayRes, tasksAllRes] = await Promise.all([
-          fetch(`/habits?userEmail=${encodeURIComponent(userEmail)}`),
-          fetch(`/tasks?userEmail=${encodeURIComponent(userEmail)}&date=${today}`),
-          fetch(`/tasks?userEmail=${encodeURIComponent(userEmail)}`),
+          fetch(`https://study-easy.onrender.com/habits?userEmail=${encodeURIComponent(userEmail)}`),
+          fetch(`https://study-easy.onrender.com/tasks?userEmail=${encodeURIComponent(userEmail)}&date=${today}`),
+          fetch(`https://study-easy.onrender.com/tasks?userEmail=${encodeURIComponent(userEmail)}`),
         ]);
 
         const habitsAll = habRes.ok ? await habRes.json() : [];
