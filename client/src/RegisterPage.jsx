@@ -36,7 +36,8 @@ function RegisterPage() {
 
     try {
       console.log('Sending request with data:', formData);
-      const response = await fetch('https://study-easy.onrender.com/register', {
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${API_BASE}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -54,8 +55,15 @@ function RegisterPage() {
         return;
       }
 
-      alert(data.message);
-      navigate('/login');
+      // Store token and email for auto-login after registration
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('userEmail', data.user.email);
+        navigate('/daily-todo', { state: { email: data.user.email } });
+      } else {
+        alert(data.message || data.msg);
+        navigate('/login');
+      }
     } catch (error) {
       console.error('Registration error:', error);
       setErrors({ server: 'Registration failed: ' + error.message });

@@ -11,9 +11,10 @@ import {
   ArrowLeft 
 } from 'lucide-react';
 import { Link } from 'react-router-dom'; // Assuming you use react-router for navigation
+import { apiFetch } from './api';
 
 function Profile() {
-  const userEmail = localStorage.getItem('userEmail') || "radhika@demo.com";
+  const userEmail = localStorage.getItem('userEmail') || "guest@demo.com";
   
   // STATE: Stats instead of Tasks
   const [stats, setStats] = useState({ 
@@ -32,11 +33,11 @@ function Profile() {
       try {
         const today = new Date().toISOString().split('T')[0];
         
-        // Parallel Fetch
+        // Parallel Fetch (userEmail derived from token on server)
         const [habRes, tasksTodayRes, tasksAllRes] = await Promise.all([
-          fetch(`https://study-easy.onrender.com/habits?userEmail=${encodeURIComponent(userEmail)}`),
-          fetch(`https://study-easy.onrender.com/tasks?userEmail=${encodeURIComponent(userEmail)}&date=${today}`),
-          fetch(`https://study-easy.onrender.com/tasks?userEmail=${encodeURIComponent(userEmail)}`),
+          apiFetch('/habits'),
+          apiFetch(`/tasks?date=${today}`),
+          apiFetch('/tasks'),
         ]);
 
         const habitsAll = habRes.ok ? await habRes.json() : [];

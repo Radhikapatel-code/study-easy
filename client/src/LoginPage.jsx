@@ -14,7 +14,8 @@ function LoginPage() {
     setErrors({});
 
     try {
-      const response = await fetch('https://study-easy.onrender.com/login', {
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${API_BASE}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -27,9 +28,12 @@ function LoginPage() {
       }
       const data = await response.json();
       if (response.ok) {
-        // Save email and navigate to Daily To-Do after successful login
-        try { localStorage.setItem('userEmail', formData.email); } catch (e) { /* ignore */ }
-        navigate('/daily-todo', { state: { email: formData.email } });
+        // Store token AND email after successful login
+        try {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('userEmail', data.user.email);
+        } catch (e) { /* ignore */ }
+        navigate('/daily-todo', { state: { email: data.user.email } });
       } else {
         setErrors({ server: data.msg || data.error || 'Login failed' });
       }

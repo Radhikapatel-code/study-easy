@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Shield, Calendar, User, ArrowLeft, Activity, Award, Star } from 'lucide-react';
+import { apiFetch } from './api';
 
 export default function ProfilePage() {
   const userEmail = localStorage.getItem('userEmail') || 'guest@demo.com';
@@ -12,9 +13,9 @@ export default function ProfilePage() {
       try {
         const today = new Date().toISOString().split('T')[0];
         const [habRes, tasksTodayRes, tasksAllRes] = await Promise.all([
-          fetch(`https://study-easy.onrender.com/habits?userEmail=${encodeURIComponent(userEmail)}`),
-          fetch(`https://study-easy.onrender.com/tasks?userEmail=${encodeURIComponent(userEmail)}&date=${today}`),
-          fetch(`https://study-easy.onrender.com/tasks?userEmail=${encodeURIComponent(userEmail)}`),
+          apiFetch('/habits'),
+          apiFetch(`/tasks?date=${today}`),
+          apiFetch('/tasks'),
         ]);
 
         const habitsAll = habRes.ok ? await habRes.json() : [];

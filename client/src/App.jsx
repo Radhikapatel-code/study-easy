@@ -18,6 +18,7 @@ import {
   RotateCcw   // New Icon
 } from 'lucide-react';
 import Profile from './ProfilePage';
+import { apiFetch } from './api';
 
 // Import your pages
 import WelcomePage from './WelcomePage';
@@ -34,6 +35,8 @@ const SystemShell = ({ children }) => {
   // --- STATE: GLOBAL TOOLS (Initially OFF) ---
   const [showNote, setShowNote] = useState(false);
   const [showTimer, setShowTimer] = useState(false);
+  const [focusTasks, setFocusTasks] = useState([]);
+  const [selectedFocusTask, setSelectedFocusTask] = useState('');
   // profile is now a full page route
 
   // --- LOGIC: STICKY NOTE DRAGGING ---
@@ -60,7 +63,12 @@ const SystemShell = ({ children }) => {
             setIsRunning(false);
             clearInterval(interval);
             // THE COMMANDER ALERT
-            alert("Take a break, Commander."); 
+            if (selectedFocusTask) {
+              apiFetch(`/tasks/${selectedFocusTask}/focus`, { method: 'POST' }).catch(console.error);
+              alert("Focus session logged to task! Take a break, Commander."); 
+            } else {
+              alert("Take a break, Commander."); 
+            }
           } else {
             setMinutes((m) => m - 1);
             setSeconds(59);
@@ -71,7 +79,18 @@ const SystemShell = ({ children }) => {
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isRunning, minutes, seconds]);
+  }, [isRunning, minutes, seconds, selectedFocusTask]);
+
+  // --- LOGIC: FETCH TASKS FOR FOCUS TIMER ---
+  useEffect(() => {
+    if (showTimer) {
+      const today = new Date().toISOString().split('T')[0];
+      apiFetch(`/tasks?date=${today}`)
+        .then(res => res.ok ? res.json() : [])
+        .then(data => setFocusTasks(data.filter(t => !t.completed)))
+        .catch(console.error);
+    }
+  }, [showTimer]);
 
   // Drag Handlers (Generic-ish)
   const handleMouseDown = (e, type) => {
@@ -158,7 +177,7 @@ const SystemShell = ({ children }) => {
             <Clock size={18} /> <span>{showTimer ? 'Close Timer' : 'Focus Timer'}</span>
           </button>
 
-          <Link to="/" className="w-full flex items-center gap-3 text-sm font-medium text-red-900 hover:text-red-400 transition-colors pt-4 px-2">
+          <Link to="/" onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('userEmail'); }} className="w-full flex items-center gap-3 text-sm font-medium text-red-900 hover:text-red-400 transition-colors pt-4 px-2">
             <LogOut size={18} /> <span>Sign Out</span>
           </Link>
         </div>
@@ -195,6 +214,20 @@ const SystemShell = ({ children }) => {
             </div>
             
             <div className="p-6 flex flex-col items-center justify-center">
+              {/* TASK SELECTION FOR FOCUS LOGGING */}
+              <div className="mb-4 w-full" onMouseDown={(e) => e.stopPropagation()}>
+                <select
+                  value={selectedFocusTask}
+                  onChange={(e) => setSelectedFocusTask(e.target.value)}
+                  className="w-full bg-zinc-900 border border-zinc-700 text-xs text-zinc-300 p-2 rounded focus:outline-none focus:border-emerald-500 font-pixel"
+                >
+                  <option value="">-- ASSIGN TASK (OPTIONAL) --</option>
+                  {focusTasks.map(t => (
+                    <option key={t._id} value={t._id}>{t.text}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* EDITABLE TIME DISPLAY */}
               <div className="flex items-center text-5xl font-pixel font-bold text-white mb-6 tracking-tighter" onMouseDown={(e) => e.stopPropagation()}>
                 <input 

@@ -12,6 +12,8 @@ import {
   CheckCircle2,
   Calendar
 } from 'lucide-react';
+import { apiFetch } from './api';
+import { connectSocket } from './socket';
 
 function HabitTracker() {
   const location = useLocation();
@@ -38,7 +40,7 @@ function HabitTracker() {
     const fetchHabits = async () => {
       if (!userEmail) return;
       try {
-        const response = await fetch(`https://study-easy.onrender.com/habits?userEmail=${encodeURIComponent(userEmail)}`);
+        const response = await apiFetch('/habits');
         if (!response.ok) throw new Error('Failed');
         const data = await response.json();
         setHabits(Array.isArray(data) ? data : []);
@@ -59,14 +61,31 @@ function HabitTracker() {
     };
   }, [userEmail]);
 
+  // Real-time Socket.io subscriptions
+  useEffect(() => {
+    const socket = connectSocket();
+    const handleHabitUpdate = () => {
+      apiFetch('/habits').then(r => r.ok ? r.json() : []).then(data => setHabits(Array.isArray(data) ? data : []));
+    };
+
+    socket.on('habit:updated', handleHabitUpdate);
+    socket.on('habit:deleted', ({ _id }) => setHabits(prev => prev.filter(h => h._id !== _id)));
+    socket.on('task:updated', handleHabitUpdate);
+
+    return () => {
+      socket.off('habit:updated', handleHabitUpdate);
+      socket.off('habit:deleted');
+      socket.off('task:updated', handleHabitUpdate);
+    };
+  }, [userEmail]);
+
   useEffect(() => {
     const syncHabits = async () => {
       if (!userEmail) return;
       try {
-        await fetch('https://study-easy.onrender.com/sync-habits-to-tasks', {
+        await apiFetch('/sync-habits-to-tasks', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userEmail }),
+          body: JSON.stringify({}),
         });
       } catch (error) {
         console.error('Sync error:', error);
@@ -79,10 +98,9 @@ function HabitTracker() {
     e.preventDefault();
     if (!formData.name.trim()) return;
     try {
-      const response = await fetch('https://study-easy.onrender.com/habits', {
+      const response = await apiFetch('/habits', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, userEmail }),
+        body: JSON.stringify({ name: formData.name, category: formData.category }),
       });
       const data = await response.json();
       setHabits([...habits, data.habit]);
@@ -98,7 +116,7 @@ function HabitTracker() {
     if (!confirm('Delete this habit and its linked daily task?')) return;
     try {
       console.log(`Deleting habit: ${habitId}`);
-      const res = await fetch(`https://study-easy.onrender.com/habits/${habitId}`, { method: 'DELETE' });
+      const res = await apiFetch(`/habits/${habitId}`, { method: 'DELETE' });
       console.log(`Delete response status: ${res.status}`);
       if (!res.ok) {
         const errData = await res.json();
@@ -121,9 +139,8 @@ function HabitTracker() {
     if (date > today) return;
 
     try {
-      const response = await fetch(`https://study-easy.onrender.com/habits/${habitId}`, {
+      const response = await apiFetch(`/habits/${habitId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date, completed }),
       });
       const data = await response.json();

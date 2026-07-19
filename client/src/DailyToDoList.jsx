@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle2, Crosshair, Check, Zap, Trash2, Shield, Calendar } from 'lucide-react';
+import { apiFetch } from './api';
+import { connectSocket, disconnectSocket } from './socket';
 
 function DailyToDoList() {
-  const userEmail = localStorage.getItem('userEmail') || "radhika@demo.com";
+  const userEmail = localStorage.getItem('userEmail') || "guest@demo.com";
   
   // FIX 1: We need a state for the selected date to filter tasks correctly
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -20,7 +22,7 @@ function DailyToDoList() {
   useEffect(() => {
     const runMigration = async () => {
       try {
-        const res = await fetch('https://study-easy.onrender.com/migrate-tasks-category', { method: 'POST' });
+        const res = await apiFetch('/migrate-tasks-category', { method: 'POST' });
         if (res.ok) {
           const data = await res.json();
           console.log('Migration result:', data);
@@ -43,6 +45,26 @@ function DailyToDoList() {
     };
   }, [userEmail, selectedDate]);
 
+  // Real-time Socket.io subscriptions
+  useEffect(() => {
+    const socket = connectSocket();
+    const handleCreated = () => fetchTasks();
+    const handleUpdated = () => fetchTasks();
+    const handleDeleted = ({ _id }) => setTasks(prev => prev.filter(t => t._id !== _id));
+
+    socket.on('task:created', handleCreated);
+    socket.on('task:updated', handleUpdated);
+    socket.on('task:deleted', handleDeleted);
+    socket.on('habit:updated', handleCreated);
+
+    return () => {
+      socket.off('task:created', handleCreated);
+      socket.off('task:updated', handleUpdated);
+      socket.off('task:deleted', handleDeleted);
+      socket.off('habit:updated', handleCreated);
+    };
+  }, [userEmail, selectedDate]);
+
   // --- 2. CREATE TASK LOGIC ---
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,11 +74,9 @@ function DailyToDoList() {
     const dateToSend = new Date().toISOString().split('T')[0];
     
     try {
-      const response = await fetch('https://study-easy.onrender.com/tasks', {
+      const response = await apiFetch('/tasks', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                userEmail,
                 text: formData.title, // Backend expects 'text'
                 date: dateToSend,     // Always today
                 category: formData.category || 'Work',
@@ -82,9 +102,8 @@ function DailyToDoList() {
 
     try {
         // This PUT request triggers the Server Sync Logic we wrote!
-      await fetch(`https://study-easy.onrender.com/tasks/${id}`, {
+      await apiFetch(`/tasks/${id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ completed: !currentStatus })
         });
       // Inform habit tracker that a linked habit may have been updated
@@ -103,7 +122,7 @@ function DailyToDoList() {
     setTasks(tasks.filter(t => t._id !== id));
     try {
         console.log(`Deleting task: ${id}`);
-        const response = await fetch(`https://study-easy.onrender.com/tasks/${id}`, { method: 'DELETE' });
+        const response = await apiFetch(`/tasks/${id}`, { method: 'DELETE' });
         console.log(`Delete response status: ${response.status}`);
         if (!response.ok) {
             const errData = await response.json();
@@ -125,14 +144,13 @@ function DailyToDoList() {
       setLoading(true);
 
       // A. Trigger the Sync (Creates daily tasks for your habits)
-      await fetch('https://study-easy.onrender.com/sync-habits-to-tasks', {
+      await apiFetch('/sync-habits-to-tasks', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userEmail })
+          body: JSON.stringify({})
       });
 
-      // B. Fetch Tasks for the specific date
-      const response = await fetch(`https://study-easy.onrender.com/tasks?userEmail=${encodeURIComponent(userEmail)}&date=${selectedDate}`);
+      // B. Fetch Tasks for the specific date (userEmail derived from token on server)
+      const response = await apiFetch(`/tasks?date=${selectedDate}`);
       if (response.ok) {
          const data = await response.json();
          setTasks(data);

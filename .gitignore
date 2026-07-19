@@ -1,17 +1,13 @@
-Node.js
+# Node.js
+node_modules/
 
-node_modules/ package-lock.json
-
-node_modules
-
-Environment variables
-
+# Environment variables
 .env
 
-Vite/React build output
+# Vite/React build output
+dist/
+build/
 
-dist/ build/
-
-Temporary files
-
-.DS_Store *.log
+# Temporary files
+.DS_Store
+*.log

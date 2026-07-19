@@ -9,9 +9,10 @@ import {
   Clock,
   CheckCircle2
 } from 'lucide-react';
+import { apiFetch } from './api';
 
 function MonthlyPlanner() {
-  const userEmail = localStorage.getItem('userEmail') || "radhika@demo.com";
+  const userEmail = localStorage.getItem('userEmail') || "guest@demo.com";
   
   // STATE
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -25,7 +26,7 @@ function MonthlyPlanner() {
     const fetchAllTasks = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`https://study-easy.onrender.com/tasks?userEmail=${encodeURIComponent(userEmail)}`);
+        const response = await apiFetch('/tasks');
         if (response.ok) {
           const data = await response.json();
           setAllTasks(data);
@@ -90,11 +91,9 @@ function MonthlyPlanner() {
     // ----------------------------------
 
     try {
-      const response = await fetch('https://study-easy.onrender.com/tasks', {
+      const response = await apiFetch('/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userEmail,
           text: newTaskText,
           date: selectedDate,
           priority: 'medium',
