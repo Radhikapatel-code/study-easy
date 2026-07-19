@@ -103,10 +103,13 @@ const habitSchema = new mongoose.Schema({
 const Task = mongoose.model('Task', taskSchema);
 const Habit = mongoose.model('Habit', habitSchema);
 
-// --- AUTH ROUTES (Register / Login) --- (Rate limited, no auth middleware needed)
+// --- AUTH ROUTES (Register / Login) ---
 try {
   const authRoutes = require('./routes/auth');
-  app.use('/', authLimiter, authRoutes); // mount at root so client can call /register and /login
+  // Mount authLimiter ONLY inside the auth router, or specifically on the paths
+  app.use('/login', authLimiter);
+  app.use('/register', authLimiter);
+  app.use('/', authRoutes); 
 } catch (err) {
   console.warn('Auth routes not available:', err.message);
 }
