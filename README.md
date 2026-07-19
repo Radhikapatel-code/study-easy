@@ -66,6 +66,11 @@ Client (React + Vite)  →  REST API (Express.js)  →  MongoDB
 | <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/c8b8ad68-0dec-4e4c-adca-49ca001e37d4" /> | <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/6aec7541-47fd-4c6e-bc77-e4f08b4b73be" /> |
 | *Visual streak tracking & recurring protocols.* | *Monthly planner with timed reminders.* |
 
+| **Focus Timer** | **Quick Scratchpad** |
+|---|---|
+| <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/focus-timer-placeholder.png" /> | <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/scratchpad-placeholder.png" /> |
+| *Draggable HH:MM:SS timer to stay locked in.* | *Floating memo pad with auto-save.* |
+
 ---
 
 ## 🕹️ CORE MODULES
@@ -85,11 +90,17 @@ Client (React + Vite)  →  REST API (Express.js)  →  MongoDB
     * 🔵 **PLATINUM:** 90%+ (High-Energy Neon Animation)
 * **Data Chips:** Earn badges for milestones like "Streak Keeper" or "Task Master."
 
-### 3. ⚡ **Habit Log**
+### 3. ⚡ **Habit Log & Monthly Calendar**
 * **Recurring Protocols:** Set habits that persist daily.
 * **Sync Logic:** Habits are automatically synced to your daily task list for seamless tracking.
+* **Mission Calendar:** Schedule future objectives with specific times and priority layers.
 
-### 4. 🔐 **JWT Authentication**
+### 4. 🛠 **Productivity Toolkit**
+* **Focus Timer:** An integrated, draggable, and fully customizable `HH:MM:SS` timer for intense focus sessions.
+* **Quick Memo:** A floating scratchpad that auto-saves your thoughts via local storage while you navigate across tabs.
+* **Mini-Sidebar:** The side navigation seamlessly collapses into a focused icon-bar to maximize your workspace real estate.
+
+### 5. 🔐 **JWT Authentication**
 * **Secure API:** All data routes require a valid JWT Bearer token.
 * **Token-based Identity:** Server derives user identity from the token — no client-supplied email spoofing.
 * **Auto-redirect:** Expired/invalid tokens redirect to login automatically.
