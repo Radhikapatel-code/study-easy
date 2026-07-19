@@ -199,7 +199,7 @@ function DailyToDoList() {
             </h1>
             <p className="text-cyan-200/70 font-mono text-xl mt-2 tracking-wider flex items-center gap-2">
               <span className="w-2 h-2 bg-green-500 animate-ping rounded-full"></span>
-              COMMANDER: {userEmail.split('@')[0].toUpperCase()}
+              COMMANDER: {(localStorage.getItem('userName') || userEmail.split('@')[0]).toUpperCase()}
             </p>
           </div>
           {/* Today's Date Display (standardized) */}

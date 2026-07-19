@@ -76,17 +76,20 @@ function MonthlyPlanner() {
     if (!newTaskText.trim()) return;
 
     // --- NEW: Ask for extra details ---
+    let timeTrim = '00:00';
     const timeInput = prompt("ENTER TIME (e.g. 14:00). Leave empty for no reminder:");
-    if (timeInput === null) return; // User cancelled
-    const timeTrim = (timeInput || '').trim();
-    // Validate HH:MM 24-hour format if provided
-    const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
-    if (timeTrim !== '' && !timeRegex.test(timeTrim)) {
-      alert('Invalid time format. Please use HH:MM (24-hour). Entry aborted.');
-      return;
+    if (timeInput !== null && timeInput.trim() !== '') {
+      timeTrim = timeInput.trim();
+      // Validate HH:MM 24-hour format if provided
+      const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
+      if (!timeRegex.test(timeTrim)) {
+        alert('Invalid time format. Please use HH:MM (24-hour). Entry aborted.');
+        return;
+      }
     }
     
-    const categoryInput = prompt("ENTER CATEGORY (e.g. Work, Health):");
+    const categoryInput = prompt("ENTER CATEGORY (e.g. Work, Health) [Default: Other]:");
+    const priorityInput = prompt("ENTER PRIORITY (low, medium, high) [Default: low]:");
     const detailsInput = prompt("ANY EXTRA DETAILS/NOTES?");
     // ----------------------------------
 
@@ -96,11 +99,11 @@ function MonthlyPlanner() {
         body: JSON.stringify({
           text: newTaskText,
           date: selectedDate,
-          priority: 'medium',
+          priority: (priorityInput || 'low').toLowerCase().trim(),
           // Add new fields to payload
-          time: timeTrim || '00:00',
-          category: categoryInput || 'General',
-          details: detailsInput || ''
+          time: timeTrim,
+          category: (categoryInput || 'Other').trim(),
+          details: (detailsInput || '').trim()
         })
       });
 

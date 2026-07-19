@@ -1,7 +1,7 @@
 import './index.css';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { User, CheckCircle2 } from 'lucide-react';
+import { User, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import Header from './components/Header';
 
 function RegisterPage() {
@@ -13,6 +13,8 @@ function RegisterPage() {
     confirmPassword: '',
   });
   const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
   const validateForm = () => {
@@ -59,6 +61,7 @@ function RegisterPage() {
       if (data.token) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('userEmail', data.user.email);
+        localStorage.setItem('userName', data.user.name);
         navigate('/daily-todo', { state: { email: data.user.email } });
       } else {
         alert(data.message || data.msg);
@@ -127,26 +130,44 @@ function RegisterPage() {
             />
             {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
           </div>
-          <div className="mb-4 text-left">
+          <div className="mb-4 text-left relative">
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               name="password"
               placeholder="Password"
               value={formData.password}
               onChange={handleChange}
-              className="w-full p-3 rounded bg-transparent border border-cyan-700 text-white placeholder-cyan-400 focus:outline-none focus:border-cyan-500"
+              className="w-full p-3 rounded bg-transparent border border-cyan-700 text-white placeholder-cyan-400 focus:outline-none focus:border-cyan-500 pr-10"
             />
-            {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-3 text-cyan-500 hover:text-cyan-300 transition-colors"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+            {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
           </div>
-          <div className="mb-4 text-left">
+          <div className="mb-4 text-left relative">
             <input
-              type="password"
+              type={showConfirmPassword ? "text" : "password"}
               name="confirmPassword"
               placeholder="Confirm Password"
               value={formData.confirmPassword}
               onChange={handleChange}
-              className="w-full p-3 rounded bg-transparent border border-cyan-700 text-white placeholder-cyan-400 focus:outline-none focus:border-cyan-500"
+              className={`w-full p-3 rounded bg-transparent border text-white placeholder-cyan-400 focus:outline-none pr-10 ${
+                !formData.confirmPassword 
+                  ? 'border-cyan-700 focus:border-cyan-500' 
+                  : (formData.password === formData.confirmPassword ? 'border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.3)]' : 'border-red-500 shadow-[0_0_8px_rgba(239,68,68,0.3)]')
+              }`}
             />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-3 top-3 text-cyan-500 hover:text-cyan-300 transition-colors"
+            >
+              {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
           </div>
           {errors.server && <p className="text-red-500 text-sm mb-4">{errors.server}</p>}
           <button

@@ -7,6 +7,10 @@ body {
   font-family: 'Silkscreen', cursive;
 }
 
+button, input, select, textarea {
+  font-family: inherit;
+}
+
 /* Grid background with light purple color */
 .bg-grid {
   background-color: #d0bdf4; /* Light purple */

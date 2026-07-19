@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './index.css';
-import { User } from 'lucide-react';
+import { User, Eye, EyeOff } from 'lucide-react';
 import Header from './components/Header';
 
 function LoginPage() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,12 +29,14 @@ function LoginPage() {
       }
       const data = await response.json();
       if (response.ok) {
-        // Store token AND email after successful login
-        try {
+        if (data.token) {
           localStorage.setItem('token', data.token);
           localStorage.setItem('userEmail', data.user.email);
-        } catch (e) { /* ignore */ }
-        navigate('/daily-todo', { state: { email: data.user.email } });
+          localStorage.setItem('userName', data.user.name);
+          navigate('/daily-todo');
+        } else {
+          navigate('/daily-todo', { state: { email: data.user.email } });
+        }
       } else {
         setErrors({ server: data.msg || data.error || 'Login failed' });
       }
@@ -68,15 +71,22 @@ function LoginPage() {
             />
             {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
           </div>
-          <div className="mb-4">
+          <div className="mb-4 relative">
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="Password"
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="w-full p-3 rounded bg-transparent border border-cyan-700 text-white placeholder-cyan-400 focus:outline-none focus:border-cyan-500"
+              className="w-full p-3 rounded bg-transparent border border-cyan-700 text-white placeholder-cyan-400 focus:outline-none focus:border-cyan-500 pr-10"
             />
-            {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-3 text-cyan-500 hover:text-cyan-300 transition-colors"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+            {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
           </div>
           {errors.server && <p className="text-red-500 text-sm mb-4">{errors.server}</p>}
           <button

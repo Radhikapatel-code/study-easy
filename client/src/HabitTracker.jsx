@@ -209,7 +209,7 @@ function HabitTracker() {
             Habit Protocol
           </h2>
           <p className="text-cyan-200/70 font-mono text-lg mt-2 tracking-wider">
-            COMMANDER: {userEmail.split('@')[0].toUpperCase()}
+            COMMANDER: {(localStorage.getItem('userName') || userEmail.split('@')[0]).toUpperCase()}
           </p>
         </div>
 
@@ -242,13 +242,12 @@ function HabitTracker() {
             <label className="text-xs uppercase tracking-widest text-zinc-500 font-bold">Category</label>
             <select
               value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              className="w-full bg-transparent border border-cyan-700 rounded p-3 text-cyan-300 focus:outline-none focus:border-cyan-500"
+              onChange={(e) => setFormData({...formData, category: e.target.value})}
+              className="bg-black/50 border border-cyan-900/50 rounded p-3 text-cyan-100 focus:outline-none focus:border-cyan-400 font-pixel transition-colors w-full"
             >
-              <option value="Health">Health</option>
-              <option value="Productivity">Productivity</option>
-              <option value="Learning">Learning</option>
-              <option value="Other">Other</option>
+              {['Health', 'Learning', 'Work', 'Fitness', 'Mindfulness', 'Other'].map(cat => (
+                <option key={cat} value={cat} className="bg-zinc-900 text-white">{cat}</option>
+              ))}
             </select>
           </div>
           <button

@@ -47,7 +47,7 @@ export default function ProfilePage() {
               <User size={34} className="text-black" />
             </div>
             <div>
-              <h1 className="text-4xl md:text-5xl font-bold tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500">COMMANDER {userEmail.split('@')[0].toUpperCase()}</h1>
+              <h1 className="text-4xl md:text-5xl font-bold tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500">COMMANDER {(localStorage.getItem('userName') || userEmail.split('@')[0]).toUpperCase()}</h1>
               <p className="text-sm text-cyan-300 mt-1">Pilot log · STREAK & PERFORMANCE</p>
             </div>
           </div>
@@ -102,7 +102,7 @@ export default function ProfilePage() {
               <div className="mt-1 text-purple-400"><Star /></div>
               <div>
                 <div className="text-sm text-white font-bold">Daily Focus secured</div>
-                <div className="text-xs text-zinc-500">You completed 5 tasks this morning — excellent precision.</div>
+                <div className="text-xs text-zinc-500">You completed {stats.tasksDoneToday} task{stats.tasksDoneToday !== 1 ? 's' : ''} this morning — excellent precision.</div>
               </div>
             </div>
 
